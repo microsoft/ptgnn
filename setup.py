@@ -18,7 +18,7 @@ setup(
     author="Deep Procedural Intelligence",
     package_data={"ptgnn": ["py.typed"]},
     install_requires=[
-        "dpu-utils>=0.2.15",
+        "dpu-utils>=0.2.17",
         "jellyfish",
         "numpy",
         "torch-scatter==2.0.4",
