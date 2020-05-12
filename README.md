@@ -1,4 +1,4 @@
-# ptgnn: A PyTorch GNN Library
+# ptgnn: A PyTorch GNN Library ![PyPI](https://img.shields.io/pypi/v/ptgnn?style=flat-square)
 
 This is a library containing pyTorch code for creating graph neural network (GNN) models.
 The library provides some sample implementations.
