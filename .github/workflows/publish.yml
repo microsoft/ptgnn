@@ -16,8 +16,6 @@ jobs:
         python-version: '3.x'
     - name: Install dependencies
       run: |
-        git describe --dirty --tags --long --match *[0-9]*
-        export SETUPTOOLS_SCM_DEBUG=1
         python -m pip install --upgrade pip
         pip install --upgrade setuptools wheel setuptools_scm toml
         python setup.py sdist bdist_wheel
@@ -25,3 +23,8 @@ jobs:
       uses: pypa/gh-action-pypi-publish@v1.1.0
       with:
           password: ${{ secrets.PYPI_TOKEN }}
+    - name: Upload packages
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist
