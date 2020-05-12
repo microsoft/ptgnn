@@ -81,7 +81,7 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 
 ### Developing ptgnn
-
+![Run Tests](https://github.com/microsoft/ptgnn/workflows/Run%20Tests/badge.svg)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 To contribute to this library, first follow the next steps:
