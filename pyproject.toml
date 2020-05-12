@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_scheme="python-simplified-semver"
+write_to="ptgnn/__version__.py"
+local_scheme="no-local-version"
+
+[tool.isort]
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+known_standard_library ="typing_extensions"
+known_first_party="ptgnn"
+known_third_party="numpy,torch,azureml,dpu_utils,docopt,jellyfish,torch_scatter,tqdm"
+
+[tool.black]
+line-length = 100
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''

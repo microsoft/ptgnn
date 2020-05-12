@@ -1,0 +1,15 @@
+name: ptgnn-env
+channels:
+  - defaults
+dependencies:
+  - pip
+  - python==3.8
+  - numpy
+  - pip:
+    - docopt
+    - dpu-utils>=0.2.15
+    - torch==1.5.0
+    - https://pytorch-geometric.com/whl/torch-1.5.0/torch_scatter-2.0.4%2Bcu102-cp38-cp38-linux_x86_64.whl
+    - jellyfish
+    - tqdm
+    - typing-extensions
