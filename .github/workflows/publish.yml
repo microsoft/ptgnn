@@ -17,7 +17,8 @@ jobs:
     - name: Install dependencies
       run: |
         git tag
-        git describe
+        git describe --dirty --tags --long --match *[0-9]*
+        export SETUPTOOLS_SCM_DEBUG=1
         python -m pip install --upgrade pip
         pip install --upgrade setuptools wheel setuptools_scm
         python setup.py sdist bdist_wheel
