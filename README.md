@@ -54,15 +54,18 @@ CUDA 10.2).
     pip install torch-scatter==2.0.4+cu101 -f https://pytorch-geometric.com/whl/torch-1.4.0.html
     ```
 
-1. To install `pt-gnn` as a package, including all other dependencies:
+1. To install `ptgnn` from pypi, including all other dependencies:
+    ```bash
+   pip install ptgpnn
+    ```
+   or directly from the sources, `cd` into the root directory of the project and run
     ```bash
     pip install -e .
     ```
-
-To check that installation was successful and run the unit tests:
-```python
-python setup.py test
-```
+    To check that installation was successful and run the unit tests:
+    ```python
+    python setup.py test
+    ```
 
 
 # Contributing
