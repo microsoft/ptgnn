@@ -87,13 +87,14 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 ![Run Tests](https://github.com/microsoft/ptgnn/workflows/Run%20Tests/badge.svg)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-To contribute to this library, first follow the next steps:
-* Install the requirements.
+To contribute to this library, first follow the next steps to setup your
+development environment:
+* Install the library requirements.
 * Install the pre-commit hooks:
     * Run `pip3 install pre-commit`
     * Install the hooks `pre-commit install`
 
-###### Conda Instructions
+###### Using Conda
 If you are using conda, then download the correct torch-scatter wheel.
 If using `torch==1.5.0` and Python 3.7, you can use the [environment.yml](environment.yml)
 included in the repo, with the following steps:
@@ -106,3 +107,9 @@ $ python setup.py test
 $ pip install pre-commit
 $ pre-commit install
 ```
+
+###### Releasing to PyPi
+To create a PyPi release push a tag in the form `v1.3.4` in this repository (make
+sure that you follow [semantic versioning](https://semver.org/)). The
+[Publish on PyPi](https://github.com/microsoft/ptgnn/actions?query=workflow%3A%22Publish+on+PyPi%22)
+GitHub action will automatically upload a new release.
