@@ -61,7 +61,6 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
                 src=torch.ones_like(node_to_graph_idx, dtype=torch.int64), index=node_to_graph_idx
             )  # [num_nodes]
 
-            num_nodes_per_graph = num_nodes_per_graph
             node_offset = 0
             for num_nodes in num_nodes_per_graph:
                 for start_idx in range(0, num_nodes, self.__max_num_nodes):
@@ -108,7 +107,7 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
             scores = torch.einsum("khd,vhd->khv", graph_keys, graph_queries) / (
                 self.__key_query_dim ** 0.5
             )
-            attention_probs = torch.nn.functional.softmax(scores, dim=-1)
+            attention_probs = nn.functional.softmax(scores, dim=-1)
             attention_probs = self.__dropout_layer(attention_probs)
             out_values = torch.einsum("khv,vhd->khd", attention_probs, values[graph_nodes])
             all_out_values.append(out_values)
@@ -117,7 +116,7 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
         output = self.__summarization_layer(values.reshape(values.shape[0], -1))
         attention_output = self.__layer_norm1(self.__dropout_layer(output))
 
-        intermediate = torch.nn.functional.relu(self.__intermediate_layer(attention_output))
+        intermediate = nn.functional.relu(self.__intermediate_layer(attention_output))
         output = self.__dropout_layer(self.__output_layer(intermediate))
         output_node_states = self.__layer_norm2(output + attention_output)
         if self.__target_reference == "all":
@@ -128,8 +127,8 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
 
     @property
     def input_state_dimension(self) -> int:
-        raise NotImplemented
+        raise NotImplementedError()
 
     @property
     def output_state_dimension(self) -> int:
-        raise NotImplemented
+        raise NotImplementedError()
