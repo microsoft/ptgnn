@@ -26,7 +26,7 @@ setup(
         "tqdm",
         "typing-extensions",
     ],
-    extras_require={"dev": ["black", "isort", "pre-commit"]},
+    extras_require={"dev": ["black", "isort", "pre-commit"], "aml": ["azureml"]},
     setup_requires=["setuptools_scm"],
     url="https://github.com/microsoft/ptgnn/",
     project_urls={

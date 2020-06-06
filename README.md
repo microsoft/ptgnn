@@ -56,7 +56,11 @@ CUDA 10.2).
 
 1. To install `ptgnn` from pypi, including all other dependencies:
     ```bash
-   pip install ptgpnn
+   pip install ptgnn
+    ```
+   If you want to use ptgnn sampels with Azure ML (e.g. the `--aml` flag in the implementation CLIs), install with
+   ```bash
+    pip install ptgnn[aml]
     ```
    or directly from the sources, `cd` into the root directory of the project and run
     ```bash
@@ -84,7 +88,8 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 
 ### Developing ptgnn
-![Run Tests](https://github.com/microsoft/ptgnn/workflows/Run%20Tests/badge.svg)
+![Unit Tests](https://github.com/microsoft/ptgnn/workflows/Unit%20Tests/badge.svg)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/microsoft/ptgnn.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/microsoft/ptgnn/alerts/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 To contribute to this library, first follow the next steps to setup your

@@ -20,7 +20,7 @@ from typing import (
 from typing_extensions import final
 
 import torch
-from dpu_utils.utils import BufferedIterator, ThreadedIterator, shuffled_iterator
+from dpu_utils.utils.iterators import BufferedIterator, ThreadedIterator, shuffled_iterator
 from torch import nn
 
 __all__ = ["AbstractNeuralModel"]
