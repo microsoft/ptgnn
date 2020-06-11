@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from math import sqrt
 from typing import NamedTuple, Union
 from typing_extensions import Literal
 
@@ -51,16 +52,16 @@ class NormalizedWeightsVarSizedElementReduce(AbstractVarSizedElementReduce):
     def forward(self, inputs: ElementsToSummaryRepresentationInput) -> torch.Tensor:
         attention_scores = self.__attention_layer(inputs.element_embeddings).squeeze(
             -1
-        )  # [num_vertices]
+        )  # [num_elements]
         attention_probs = torch.exp(
             scatter_log_softmax(attention_scores, index=inputs.element_to_sample_map, dim=0, eps=0)
-        )  # [num_vertices]
+        )  # [num_elements]
         return scatter_sum(
             self.__output_layer(inputs.element_embeddings) * attention_probs.unsqueeze(-1),
             index=inputs.num_samples,
             dim=0,
             dim_size=inputs.num_samples,
-        )  # [num_graphs, D']
+        )  # [num_samples, D']
 
 
 class WeightedSumVarSizedElementReduce(AbstractVarSizedElementReduce):
@@ -71,13 +72,13 @@ class WeightedSumVarSizedElementReduce(AbstractVarSizedElementReduce):
     def forward(self, inputs: ElementsToSummaryRepresentationInput) -> torch.Tensor:
         weights = torch.sigmoid(
             self.__weights_layer(inputs.element_embeddings).squeeze(-1)
-        )  # [num_vertices]
+        )  # [num_elements]
         return scatter_sum(
             inputs.element_embeddings * weights.unsqueeze(-1),
             index=inputs.element_to_sample_map,
             dim=0,
             dim_size=inputs.num_samples,
-        )  # [num_graphs, D']
+        )  # [num_samples, D']
 
 
 class SelfAttentionVarSizedElementReduce(AbstractVarSizedElementReduce):
@@ -86,30 +87,30 @@ class SelfAttentionVarSizedElementReduce(AbstractVarSizedElementReduce):
         input_representation_size: int,
         hidden_size: int,
         output_representation_size: int,
-        key_representation_summarizer: AbstractVarSizedElementReduce,
+        query_representation_summarizer: AbstractVarSizedElementReduce,
     ):
         super().__init__()
-        self.__key_layer = key_representation_summarizer
-        self.__value_layer = nn.Linear(input_representation_size, hidden_size, bias=False)
+        self.__query_layer = query_representation_summarizer
+        self.__key_layer = nn.Linear(input_representation_size, hidden_size, bias=False)
         self.__output_layer = nn.Linear(
             input_representation_size, output_representation_size, bias=False
         )
 
     def forward(self, inputs: ElementsToSummaryRepresentationInput) -> torch.Tensor:
-        keys = self.__key_layer(inputs)  # [num_graphs, H]
-        keys_all = keys[inputs.element_to_sample_map]  # [num_vertices, H]
-        values = self.__value_layer(inputs.element_embeddings)  # [num_vertices, H]
+        queries = self.__query_layer(inputs)  # [num_samples, H]
+        queries_all = queries[inputs.element_to_sample_map]  # [num_elements, H]
+        keys = self.__key_layer(inputs.element_embeddings)  # [num_elements, H]
 
-        attention_scores = torch.einsum("vh,vh->v", keys_all, values)  # [num_vertices]
+        attention_scores = torch.einsum("vh,vh->v", queries_all, keys)  # [num_elements]
         attention_probs = torch.exp(
             scatter_log_softmax(attention_scores, index=inputs.element_to_sample_map, dim=0, eps=0)
-        )  # [num_vertices]
+        )  # [num_elements]
         return scatter_sum(
             self.__output_layer(inputs.element_embeddings) * attention_probs.unsqueeze(-1),
             index=inputs.element_to_sample_map,
             dim=0,
             dim_size=inputs.num_samples,
-        )  # [num_graphs, D']
+        )  # [num_samples, D']
 
 
 class MultiheadSelfAttentionVarSizedElementReduce(AbstractVarSizedElementReduce):
@@ -119,44 +120,59 @@ class MultiheadSelfAttentionVarSizedElementReduce(AbstractVarSizedElementReduce)
         hidden_size: int,
         output_representation_size: int,
         num_heads: int,
-        key_representation_summarizer: AbstractVarSizedElementReduce,
+        query_representation_summarizer: AbstractVarSizedElementReduce,
+        use_value_layer: bool = False,
     ):
         super().__init__()
-        self.__query_layer = key_representation_summarizer
-        self.__value_layer = nn.Linear(input_representation_size, hidden_size, bias=False)
+        self.__query_layer = query_representation_summarizer
+        self.__key_layer = nn.Linear(input_representation_size, hidden_size, bias=False)
         assert hidden_size % num_heads == 0, "Hidden size must be divisible by the number of heads."
+        self.__use_value_layer = use_value_layer
+        if use_value_layer:
+            self.__value_layer = nn.Linear(input_representation_size, hidden_size, bias=False)
+            self.__output_layer = nn.Linear(hidden_size, output_representation_size, bias=False)
+        else:
+            self.__output_layer = nn.Linear(
+                input_representation_size * num_heads, output_representation_size, bias=False
+            )
         self.__num_heads = num_heads
-        self.__output_layer = nn.Linear(
-            input_representation_size * num_heads, output_representation_size, bias=False
-        )
 
     def forward(self, inputs: ElementsToSummaryRepresentationInput) -> torch.Tensor:
-        query = self.__query_layer(inputs)  # [num_graphs, H]
-        query_per_node = query[inputs.element_to_sample_map]  # [num_vertices, H]
-        values = self.__value_layer(inputs.element_embeddings)  # [num_vertices, H]
-
-        query_per_node = values.reshape(
-            (query_per_node.shape[0], self.__num_heads, query_per_node.shape[1] // self.__num_heads)
+        queries = self.__query_layer(inputs)  # [num_samples, H]
+        queries_per_element = queries[inputs.element_to_sample_map]  # [num_elements, H]
+        queries_per_element = queries_per_element.reshape(
+            (
+                queries_per_element.shape[0],
+                self.__num_heads,
+                queries_per_element.shape[1] // self.__num_heads,
+            )
         )
-        values = values.reshape(
-            (values.shape[0], self.__num_heads, values.shape[1] // self.__num_heads)
-        )
 
-        attention_scores = torch.einsum(
-            "vkh,vkh->vk", query_per_node, values
-        )  # [num_vertices, num_heads]
+        keys = self.__key_layer(inputs.element_embeddings)  # [num_elements, H]
+        keys = keys.reshape((keys.shape[0], self.__num_heads, keys.shape[1] // self.__num_heads))
+
+        attention_scores = torch.einsum("bkh,bkh->bk", queries_per_element, keys) / sqrt(
+            keys.shape[-1]
+        )  # [num_elements, num_heads]
         attention_probs = torch.exp(
             scatter_log_softmax(attention_scores, index=inputs.element_to_sample_map, dim=0, eps=0)
-        )  # [num_vertices, num_heads]
+        )  # [num_elements, num_heads]
 
-        outputs = attention_probs.unsqueeze(-1) * inputs.element_embeddings.unsqueeze(
-            1
-        )  # [num_vertices, num_heads, D']
-        per_graph_outputs = scatter_sum(
+        if self.__use_value_layer:
+            values = self.__value_layer(inputs.element_embeddings)  # [num_elements, hidden_size]
+            values = values.reshape(
+                (values.shape[0], self.__num_heads, values.shape[1] // self.__num_heads)
+            )
+            outputs = attention_probs.unsqueeze(-1) * values
+        else:
+            outputs = attention_probs.unsqueeze(-1) * inputs.element_embeddings.unsqueeze(
+                1
+            )  # [num_elements, num_heads, D']
+
+        outputs = outputs.reshape((outputs.shape[0], -1))  # [num_elements, num_heads * D']
+
+        per_sample_outputs = scatter_sum(
             outputs, index=inputs.element_to_sample_map, dim=0, dim_size=inputs.num_samples
-        )  # [num_graphs, num_heads, D']
-        per_graph_outputs = per_graph_outputs.reshape(
-            (per_graph_outputs.shape[0], -1)
-        )  # [num_graphs, num_heads * D']
+        )  # [num_samples, num_heads, D']
 
-        return self.__output_layer(per_graph_outputs)  # [num_graphs, D']
+        return self.__output_layer(per_sample_outputs)  # [num_samples, D']

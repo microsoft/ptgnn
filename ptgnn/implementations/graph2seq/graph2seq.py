@@ -118,7 +118,7 @@ class Graph2Seq(AbstractNeuralModel[CodeGraph2Seq, TensorizedGraph2Seq, Graph2Se
             hidden_size=gnn.input_node_state_dim + gnn.output_node_state_dim,
             output_representation_size=gnn.output_node_state_dim,
             num_heads=self.num_summarization_heads,
-            key_representation_summarizer=SimpleVarSizedElementReduce("max"),
+            query_representation_summarizer=SimpleVarSizedElementReduce("max"),
         )
         return Graph2SeqModule(gnn, decoder, node_to_graph_representation)
 
