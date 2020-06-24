@@ -127,8 +127,8 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
 
     @property
     def input_state_dimension(self) -> int:
-        raise NotImplementedError()
+        return self.__selfatt_head_transforms.in_features
 
     @property
     def output_state_dimension(self) -> int:
-        raise NotImplementedError()
+        return self.__output_layer.out_features
