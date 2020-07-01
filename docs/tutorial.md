@@ -3,6 +3,8 @@
 In this tutorial, we discuss how to define a GNN-based model with `ptgnn`.
 Specifically, we discuss adding the Graph2Class model of [Allamanis _et al._ (2020)](https://arxiv.org/abs/2004.10657).
 
+If you are looking for an introductory tutorial to graph neural networks, you may watch the talk [here](https://www.youtube.com/watch?v=zCEYiCxrL_0).
+
 ##### Graph2Class Task
 The Graph2Class task is a classification task that classifies a subset of nodes in a graph. Each node of
 interest is classified into one of a limited set of potential classes.
