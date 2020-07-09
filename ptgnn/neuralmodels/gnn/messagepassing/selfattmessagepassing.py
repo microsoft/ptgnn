@@ -114,7 +114,7 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
 
         values = torch.cat(all_out_values, dim=0)
         output = self.__summarization_layer(values.reshape(values.shape[0], -1))
-        attention_output = self.__layer_norm1(self.__dropout_layer(output))
+        attention_output = self.__layer_norm1(self.__dropout_layer(output) + node_states)
 
         intermediate = nn.functional.relu(self.__intermediate_layer(attention_output))
         output = self.__dropout_layer(self.__output_layer(intermediate))
