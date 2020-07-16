@@ -60,6 +60,10 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         """The dimension of the output GNN node states."""
         return self.__message_passing_layers[-1].output_state_dimension
 
+    @property
+    def message_passing_layers(self) -> List[AbstractMessagePassingLayer]:
+        return self.__message_passing_layers
+
     def _reset_module_metrics(self) -> None:
         self.__num_graphs, self.__num_edges, self.__num_nodes = 0, 0, 0
 
