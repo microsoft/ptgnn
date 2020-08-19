@@ -400,4 +400,4 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                     break
 
         # Restore the best model params that were found.
-        self.__restore_checkpoint()
+        self.__restore_checkpoint(device=device)
