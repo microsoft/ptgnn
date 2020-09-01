@@ -129,6 +129,10 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         self.LOGGER.info(
             "Model metadata loaded. The following model was created:\n %s", self.__neural_network
         )
+
+        for m in self.__metadata_finalized_hooks:
+            m(self.__model)
+
         self.LOGGER.info(
             "Model Definition:\n %s", json.dumps(dict(self.__model.model_definition), indent=2),
         )
