@@ -108,6 +108,13 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
     def neural_module(self, nn: TNeuralModule):
         self.__neural_network = nn
 
+    def load_metadata_and_create_network(
+        self, training_data: Iterable[TRawDatapoint], parallelize: bool, show_progress_bar: bool
+    ) -> None:
+        return self.__load_metadata_and_create_network(
+            training_data, parallelize, show_progress_bar
+        )
+
     def __load_metadata_and_create_network(
         self, training_data: Iterable[TRawDatapoint], parallelize: bool, show_progress_bar: bool
     ) -> None:
@@ -134,7 +141,8 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             m(self.__model)
 
         self.LOGGER.info(
-            "Model Definition:\n %s", json.dumps(dict(self.__model.model_definition), indent=2),
+            "Model Definition:\n %s",
+            json.dumps(dict(self.__model.model_definition), indent=2),
         )
 
     def __save_checkpoint(self) -> None:
