@@ -1,13 +1,13 @@
-import logging
-import math
-from typing import Any, Counter, Dict, List, NamedTuple, Optional, Union
 from typing_extensions import Final, Literal
 
+import logging
+import math
 import numpy as np
 import torch
 import torch.nn as nn
 from dpu_utils.codeutils import split_identifier_into_parts
 from dpu_utils.mlutils import BpeVocabulary, CharTensorizer, Vocabulary
+from typing import Any, Counter, Dict, List, NamedTuple, Optional, Union
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel
 from ptgnn.neuralmodels.gnn.structs import AbstractNodeEmbedder
@@ -99,7 +99,11 @@ class CnnConfig(NamedTuple):
 
 class CharUnitEmbedder(nn.Module):
     def __init__(
-        self, num_chars: int, embedding_size: int, config: CnnConfig, dropout_rate: float = 0.0,
+        self,
+        num_chars: int,
+        embedding_size: int,
+        config: CnnConfig,
+        dropout_rate: float = 0.0,
     ):
         super().__init__()
         self.__num_chars_in_vocabulary = num_chars
@@ -230,7 +234,10 @@ class StrElementRepresentationModel(
             vocabulary_size = len(self.vocabulary)
             embedding_size = self.embedding_size
             return SubtokenUnitEmbedder(
-                vocabulary_size, embedding_size, self.dropout_rate, self.subtoken_combination,
+                vocabulary_size,
+                embedding_size,
+                self.dropout_rate,
+                self.subtoken_combination,
             )
         elif self.splitting_kind == "char":
             return CharUnitEmbedder(

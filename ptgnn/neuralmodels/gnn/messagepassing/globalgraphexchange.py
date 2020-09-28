@@ -1,8 +1,7 @@
-from abc import abstractmethod
-from typing import Dict, List, Tuple
-
 import torch
+from abc import abstractmethod
 from torch import nn
+from typing import Dict, List, Tuple
 
 from ptgnn.neuralmodels.gnn.messagepassing.abstractmessagepassing import AbstractMessagePassingLayer
 from ptgnn.neuralmodels.reduceops.varsizedsummary import (

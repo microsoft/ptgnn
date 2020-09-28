@@ -1,8 +1,7 @@
-from typing import Dict, List, Tuple
-
 import torch
 from torch import nn
 from torch_scatter import scatter_sum
+from typing import Dict, List, Tuple
 
 from ptgnn.neuralmodels.gnn.messagepassing.abstractmessagepassing import AbstractMessagePassingLayer
 
@@ -37,7 +36,9 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
         )
 
         self.__summarization_layer = nn.Linear(
-            in_features=num_heads * value_dimension, out_features=output_dimension, bias=False,
+            in_features=num_heads * value_dimension,
+            out_features=output_dimension,
+            bias=False,
         )
 
         self.__intermediate_layer = nn.Linear(

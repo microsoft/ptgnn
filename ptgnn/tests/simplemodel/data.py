@@ -1,6 +1,5 @@
-from typing import Iterator, List, NamedTuple
-
 import numpy as np
+from typing import Iterator, List, NamedTuple
 
 
 class SampleDatapoint(NamedTuple):

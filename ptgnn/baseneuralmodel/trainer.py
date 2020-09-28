@@ -1,13 +1,13 @@
+from typing_extensions import Final, Protocol
+
 import json
 import logging
 import math
 import time
-from pathlib import Path
-from typing import Callable, Dict, Generic, Iterable, List, Optional, TypeVar
-from typing_extensions import Final, Protocol
-
 import torch
+from pathlib import Path
 from tqdm import tqdm
+from typing import Callable, Dict, Generic, Iterable, List, Optional, TypeVar
 
 from ptgnn.baseneuralmodel.abstractneuralmodel import AbstractNeuralModel
 from ptgnn.baseneuralmodel.modulewithmetrics import ModuleWithMetrics

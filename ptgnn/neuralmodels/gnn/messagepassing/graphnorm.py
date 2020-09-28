@@ -1,8 +1,7 @@
-from typing import Dict, List, Tuple
-
 import torch
 from torch import nn
 from torch_scatter import scatter_mean
+from typing import Dict, List, Tuple
 
 from ptgnn.neuralmodels.gnn.messagepassing.abstractmessagepassing import AbstractMessagePassingLayer
 

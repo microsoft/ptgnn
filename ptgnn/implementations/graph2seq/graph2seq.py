@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from typing_extensions import Final, TypedDict
 
 import torch
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModuleWithMetrics
 from ptgnn.baseneuralmodel.utils.data import enforce_not_None

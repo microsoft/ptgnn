@@ -1,14 +1,14 @@
-import logging
-import math
-from typing import Any, Counter, Dict, List, NamedTuple, Tuple, Union
 from typing_extensions import Final
 
+import logging
+import math
 import numpy as np
 import torch
 import torch.nn as nn
 from dpu_utils.mlutils import Vocabulary
 from torch_scatter import scatter_add
 from torch_scatter.composite import scatter_log_softmax, scatter_logsumexp
+from typing import Any, Counter, Dict, List, NamedTuple, Tuple, Union
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel
 

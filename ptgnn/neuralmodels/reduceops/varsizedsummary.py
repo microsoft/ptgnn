@@ -1,11 +1,11 @@
-from abc import abstractmethod
-from math import sqrt
-from typing import NamedTuple, Union
 from typing_extensions import Literal
 
 import torch
+from abc import abstractmethod
+from math import sqrt
 from torch import nn
 from torch_scatter import scatter, scatter_log_softmax, scatter_sum
+from typing import NamedTuple, Union
 
 
 class ElementsToSummaryRepresentationInput(NamedTuple):

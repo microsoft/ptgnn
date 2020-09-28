@@ -14,10 +14,9 @@ Options:
     -h --help                  Show this screen.
     --debug                    Enable debug routines. [default: False]
 """
-from pathlib import Path
-
 from docopt import docopt
 from dpu_utils.utils import RichPath, run_and_debug
+from pathlib import Path
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModelTrainer
 from ptgnn.baseneuralmodel.utils.amlutils import configure_logging, log_run
@@ -34,8 +33,8 @@ from ptgnn.neuralmodels.sequence.grucopydecoder import GruCopyingDecoderModel
 
 def run(arguments):
     if arguments["--aml"]:
-        from azureml.core.run import Run
         import torch
+        from azureml.core.run import Run
 
         aml_ctx = Run.get_context()
         assert torch.cuda.is_available(), "No CUDA available. Aborting training."
@@ -95,7 +94,8 @@ def run(arguments):
         model = Graph2Seq(
             gnn_model=GraphNeuralNetworkModel(
                 node_representation_model=StrElementRepresentationModel(
-                    token_splitting="token", embedding_size=embedding_size,
+                    token_splitting="token",
+                    embedding_size=embedding_size,
                 ),
                 message_passing_layer_creator=create_mp_layers,
             ),

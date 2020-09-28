@@ -8,10 +8,9 @@ Options:
     -h --help                  Show this screen.
     --debug                    Enable debug routines. [default: False]
 """
-from pathlib import Path
-
 from docopt import docopt
 from dpu_utils.utils import RichPath, run_and_debug
+from pathlib import Path
 
 from ptgnn.implementations.typilus.graph2class import Graph2Class
 from ptgnn.implementations.typilus.train import load_from_folder

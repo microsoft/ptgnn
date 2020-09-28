@@ -1,12 +1,12 @@
-import re
-from itertools import chain
-from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Tuple, Union
 from typing_extensions import Final, TypedDict
 
+import re
 import torch
 from dpu_utils.codeutils import split_identifier_into_parts
+from itertools import chain
 from torch import nn
 from torch_scatter import scatter_log_softmax, scatter_max
+from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Tuple, Union
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModuleWithMetrics
 from ptgnn.neuralmodels.gnn.graphneuralnetwork import GraphNeuralNetwork, GraphNeuralNetworkModel
@@ -43,7 +43,9 @@ class VarMisuseGraphModel(ModuleWithMetrics):
         super().__init__()
         self._gnn = gnn
         self.__candidate_scores = nn.Linear(
-            self._gnn.output_node_state_dim + self._gnn.output_node_state_dim, 1, bias=False,
+            self._gnn.output_node_state_dim + self._gnn.output_node_state_dim,
+            1,
+            bias=False,
         )
 
     def _reset_module_metrics(self) -> None:

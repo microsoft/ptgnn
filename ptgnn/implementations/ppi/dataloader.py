@@ -1,14 +1,16 @@
-from typing import Dict, List
-
 import numpy as np
 from dpu_utils.utils import RichPath
+from typing import Dict, List
 
 
 class PPIGraphSample:
     """Data structure holding a single PPI graph."""
 
     def __init__(
-        self, adjacency_lists: List[np.ndarray], node_features: np.ndarray, node_labels: np.ndarray,
+        self,
+        adjacency_lists: List[np.ndarray],
+        node_features: np.ndarray,
+        node_labels: np.ndarray,
     ):
         self._adjacency_lists = adjacency_lists
         self._node_features = node_features
@@ -54,7 +56,9 @@ class PPIDatasetLoader:
             # In case we are entering a new graph, note its ID, so that we can normalise everything to start at 0
             if graph_id not in graph_id_to_graph_data:
                 graph_id_to_graph_data[graph_id] = PPIGraphSample(
-                    adjacency_lists=[[]], node_features=[], node_labels=[],
+                    adjacency_lists=[[]],
+                    node_features=[],
+                    node_labels=[],
                 )
                 graph_id_to_node_offset[graph_id] = node_id
             cur_graph_data = graph_id_to_graph_data[graph_id]

@@ -1,17 +1,24 @@
-from typing import Any, Counter, Dict, Iterator, List, NamedTuple, Optional, Tuple, Union
 from typing_extensions import TypedDict
 
 import numpy as np
 import torch
 from dpu_utils.mlutils import Vocabulary
 from torch import nn
+from typing import Any, Counter, Dict, Iterator, List, NamedTuple, Optional, Tuple, Union
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModuleWithMetrics
 from ptgnn.baseneuralmodel.utils.data import enforce_not_None
 from ptgnn.neuralmodels.gnn import GnnOutput, GraphData, TensorizedGraphData
 from ptgnn.neuralmodels.gnn.graphneuralnetwork import GraphNeuralNetwork, GraphNeuralNetworkModel
 
-SuperNodeData = TypedDict("SuperNodeData", {"name": str, "annotation": Optional[str],}, total=False)
+SuperNodeData = TypedDict(
+    "SuperNodeData",
+    {
+        "name": str,
+        "annotation": Optional[str],
+    },
+    total=False,
+)
 
 TypilusGraph = TypedDict(
     "TypilusGraph",
@@ -164,7 +171,8 @@ class Graph2Class(
 
     def finalize_metadata(self) -> None:
         self.__target_vocab = Vocabulary.create_vocabulary(
-            self.__target_class_counter, max_size=self.max_num_classes + 1,
+            self.__target_class_counter,
+            max_size=self.max_num_classes + 1,
         )
         del self.__target_class_counter
 

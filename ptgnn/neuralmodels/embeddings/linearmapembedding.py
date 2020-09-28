@@ -1,9 +1,9 @@
-from typing import Any, Dict, Optional, Union
 from typing_extensions import Final
 
 import numpy as np
 import torch
 from torch import nn
+from typing import Any, Dict, Optional, Union
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel
 from ptgnn.baseneuralmodel.utils.data import enforce_not_None
@@ -30,14 +30,18 @@ class LinearFeatureEmbedder(nn.Module):
 
 
 class FeatureRepresentationModel(
-    AbstractNeuralModel[np.ndarray, np.ndarray, LinearFeatureEmbedder], AbstractNodeEmbedder,
+    AbstractNeuralModel[np.ndarray, np.ndarray, LinearFeatureEmbedder],
+    AbstractNodeEmbedder,
 ):
     """
     A model that maps a feature array to a D-sized representation (embedding) using a single linear layer.
     """
 
     def __init__(
-        self, *, embedding_size: int = 64, activation: Optional[nn.Module] = None,
+        self,
+        *,
+        embedding_size: int = 64,
+        activation: Optional[nn.Module] = None,
     ):
         super().__init__()
         self.embedding_size: Final = embedding_size

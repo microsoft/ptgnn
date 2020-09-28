@@ -15,11 +15,10 @@ Options:
     -h --help                  Show this screen.
 """
 import random
-from pathlib import Path
-
 import torch
 from docopt import docopt
 from dpu_utils.utils import RichPath, run_and_debug
+from pathlib import Path
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModelTrainer
 from ptgnn.baseneuralmodel.utils.amlutils import configure_logging, log_run

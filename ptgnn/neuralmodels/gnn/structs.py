@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Generic, List, NamedTuple, Tuple, TypeVar
-
 import numpy as np
 import torch
+from abc import ABC, abstractmethod
+from typing import Dict, Generic, List, NamedTuple, Tuple, TypeVar
 
 TNodeData = TypeVar("TNodeData")
 TTensorizedNodeData = TypeVar("TTensorizedNodeData")

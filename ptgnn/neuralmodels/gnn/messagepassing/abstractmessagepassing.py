@@ -1,9 +1,8 @@
-from abc import abstractmethod
-from typing import Dict, List, Tuple
-
 import torch
+from abc import abstractmethod
 from torch import nn
 from torch_scatter import scatter
+from typing import Dict, List, Tuple
 
 
 class AbstractMessagePassingLayer(nn.Module):

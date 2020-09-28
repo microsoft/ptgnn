@@ -1,7 +1,6 @@
-from typing import Any, Dict, Tuple
-
 import torch
 from torch import nn
+from typing import Any, Dict, Tuple
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel
 from ptgnn.neuralmodels.embeddings.strelementrepresentationmodel import (
@@ -21,7 +20,8 @@ class CandidateNodeAnnotationModule(nn.Module):
 
 
 class CandidateNodeAnnotationModel(
-    AbstractNeuralModel[Tuple[str, bool], Any, CandidateNodeAnnotationModule], AbstractNodeEmbedder,
+    AbstractNeuralModel[Tuple[str, bool], Any, CandidateNodeAnnotationModule],
+    AbstractNodeEmbedder,
 ):
     def __init__(self, embedding_size: int = 128, **kwargs):
         super().__init__()

@@ -1,7 +1,6 @@
-from typing import Dict, List, Optional, Tuple, Union
-
 import torch
 from torch import nn
+from typing import Dict, List, Optional, Tuple, Union
 
 from ptgnn.neuralmodels.gnn.messagepassing.abstractmessagepassing import AbstractMessagePassingLayer
 from ptgnn.neuralmodels.mlp import MLP

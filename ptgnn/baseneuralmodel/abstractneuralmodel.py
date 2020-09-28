@@ -1,8 +1,13 @@
+from typing_extensions import final
+
 import gzip
+import torch
 from abc import ABC, abstractmethod
 from concurrent import futures
+from dpu_utils.utils.iterators import BufferedIterator, ThreadedIterator, shuffled_iterator
 from itertools import islice
 from pathlib import Path
+from torch import nn
 from typing import (
     Any,
     Dict,
@@ -17,11 +22,6 @@ from typing import (
     TypeVar,
     Union,
 )
-from typing_extensions import final
-
-import torch
-from dpu_utils.utils.iterators import BufferedIterator, ThreadedIterator, shuffled_iterator
-from torch import nn
 
 __all__ = ["AbstractNeuralModel"]
 
@@ -208,7 +208,10 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
             else:
                 with futures.ThreadPoolExecutor() as pool:
                     for tensorized_sample in pool.map(
-                        lambda d: (self.tensorize(d), d if return_input_data else None,),
+                        lambda d: (
+                            self.tensorize(d),
+                            d if return_input_data else None,
+                        ),
                         dataset_iterator,
                         chunksize=200,
                     ):

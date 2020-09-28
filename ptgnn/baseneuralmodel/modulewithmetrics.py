@@ -1,8 +1,8 @@
-from abc import ABC
-from typing import Any, Dict
 from typing_extensions import final
 
+from abc import ABC
 from torch import nn
+from typing import Any, Dict
 
 
 class ModuleWithMetrics(nn.Module, ABC):

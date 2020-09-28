@@ -1,8 +1,7 @@
-from typing import Any, Dict, Iterator, NamedTuple, Optional, Union
-
 import numpy as np
 import torch
 from torch import nn
+from typing import Any, Dict, Iterator, NamedTuple, Optional, Union
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModuleWithMetrics
 from ptgnn.baseneuralmodel.utils.data import enforce_not_None

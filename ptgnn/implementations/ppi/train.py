@@ -15,12 +15,11 @@ Options:
     --debug                    Enable debug routines. [default: False]
 """
 import json
-from pathlib import Path
-
 import numpy as np
 import torch
 from docopt import docopt
 from dpu_utils.utils import RichPath, run_and_debug
+from pathlib import Path
 from torch import nn
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModelTrainer
@@ -60,7 +59,8 @@ def create_ppi_gnn_model(hidden_state_size: int = 256):
     return PPIMulticlassClassification(
         gnn_model=GraphNeuralNetworkModel[np.ndarray, np.ndarray](
             node_representation_model=FeatureRepresentationModel(
-                embedding_size=hidden_state_size, activation=nn.Tanh(),
+                embedding_size=hidden_state_size,
+                activation=nn.Tanh(),
             ),
             message_passing_layer_creator=create_mp_layers,
             max_nodes_per_graph=6000,
@@ -102,7 +102,10 @@ def run(arguments):
         nn = None
 
     def create_optimizer(parameters):
-        return torch.optim.Adam(parameters, lr=1e-3,)
+        return torch.optim.Adam(
+            parameters,
+            lr=1e-3,
+        )
 
     trainer = ModelTrainer(
         model,

@@ -1,5 +1,10 @@
+from typing_extensions import Final
+
 import logging
+import numpy as np
+import torch
 from collections import defaultdict
+from torch import nn
 from typing import (
     Any,
     Callable,
@@ -13,11 +18,6 @@ from typing import (
     TypeVar,
     Union,
 )
-from typing_extensions import Final
-
-import numpy as np
-import torch
-from torch import nn
 
 from ptgnn.baseneuralmodel import AbstractNeuralModel, ModuleWithMetrics
 from ptgnn.baseneuralmodel.utils.data import enforce_not_None
@@ -169,7 +169,9 @@ TTensorizedNodeData = TypeVar("TTensorizedNodeData")
 
 class GraphNeuralNetworkModel(
     AbstractNeuralModel[
-        GraphData[TNodeData], TensorizedGraphData[TTensorizedNodeData], GraphNeuralNetwork,
+        GraphData[TNodeData],
+        TensorizedGraphData[TTensorizedNodeData],
+        GraphNeuralNetwork,
     ],
 ):
     LOGGER: Final = logging.getLogger(__name__)
@@ -197,7 +199,9 @@ class GraphNeuralNetworkModel(
         self.max_nodes_per_graph: Final = max_nodes_per_graph
         self.max_graph_edges: Final = max_graph_edges
         self.introduce_backwards_edges: Final = introduce_backwards_edges
-        self.stop_extending_minibatch_after_num_nodes: Final = stop_extending_minibatch_after_num_nodes
+        self.stop_extending_minibatch_after_num_nodes: Final = (
+            stop_extending_minibatch_after_num_nodes
+        )
         self.add_self_edges: Final = add_self_edges
 
     # region Metadata Loading

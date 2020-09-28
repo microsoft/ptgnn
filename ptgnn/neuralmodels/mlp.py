@@ -1,9 +1,9 @@
-import logging
-from typing import List, Optional, Union
 from typing_extensions import Final
 
+import logging
 import torch
 from torch import nn
+from typing import List, Optional, Union
 
 
 class MLP(nn.Module):
@@ -52,7 +52,11 @@ class MLP(nn.Module):
         for hidden_layer_size in hidden_layer_sizes:
             layers.append(nn.Dropout(p=dropout_rate))
             layers.append(
-                nn.Linear(in_features=cur_in_dim, out_features=hidden_layer_size, bias=use_biases,)
+                nn.Linear(
+                    in_features=cur_in_dim,
+                    out_features=hidden_layer_size,
+                    bias=use_biases,
+                )
             )
             nn.init.xavier_uniform_(layers[-1].weight)
             if activation is not None:
@@ -62,7 +66,11 @@ class MLP(nn.Module):
         # Sdd the final layer, but no final activation:
         layers.append(nn.Dropout(p=dropout_rate))
         layers.append(
-            nn.Linear(in_features=cur_in_dim, out_features=output_dimension, bias=use_biases,)
+            nn.Linear(
+                in_features=cur_in_dim,
+                out_features=output_dimension,
+                bias=use_biases,
+            )
         )
         nn.init.xavier_uniform_(layers[-1].weight)
 

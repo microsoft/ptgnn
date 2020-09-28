@@ -13,13 +13,12 @@ Options:
     --debug                    Enable debug routines. [default: False]
 """
 import logging
-from pathlib import Path
-from typing import Tuple
-
 import numpy as np
 from docopt import docopt
 from dpu_utils.utils import RichPath, run_and_debug
 from jellyfish import jaro_winkler
+from pathlib import Path
+from typing import Tuple
 
 from ptgnn.implementations.graph2seq.graph2seq import Graph2Seq, Graph2SeqModule
 
