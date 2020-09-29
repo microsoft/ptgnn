@@ -213,7 +213,7 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
                             d if return_input_data else None,
                         ),
                         dataset_iterator,
-                        chunksize=200,
+                        chunksize=20,
                     ):
                         if tensorized_sample[0] is not None:
                             yield tensorized_sample
