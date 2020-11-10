@@ -5,6 +5,7 @@ Usage:
 
 Options:
     --aml                      Run this in Azure ML
+    --amp                      Enable automatic mixed precision.
     --azure-info=<path>        Azure authentication information file (JSON). Used to load data from Azure storage.
     --max-num-epochs=<epochs>  The maximum number of epochs to run training for. [default: 100]
     --minibatch-size=<size>    The minibatch size. [default: 300]
@@ -167,6 +168,7 @@ def run(arguments):
         clip_gradient_norm=1,
         target_validation_metric="Accuracy",
         target_validation_metric_higher_is_better=True,
+        enable_amp=arguments["--amp"],
     )
     if nn is not None:
         trainer.neural_module = nn
