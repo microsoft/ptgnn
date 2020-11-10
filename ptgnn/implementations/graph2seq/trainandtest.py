@@ -5,6 +5,7 @@ Usage:
 
 Options:
     --aml                      Run this in Azure ML
+    --amp                      Enable automatic mixed precision.
     --azure-info=<path>        Azure authentication information file (JSON). Used to load data from Azure storage.
     --max-num-epochs=<epochs>  The maximum number of epochs to run training for. [default: 100]
     --minibatch-size=<size>    The minibatch size. [default: 300]

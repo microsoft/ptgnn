@@ -51,6 +51,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         clip_gradient_norm: Optional[float] = None,
         target_validation_metric: Optional[str] = None,
         target_validation_metric_higher_is_better: bool = False,
+        enable_amp: bool = False,
     ):
         """
         :param model: The Component to be built and trained
@@ -84,6 +85,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         self.__train_epoch_end_hooks: List[EndOfEpochHook] = []
         self.__validation_epoch_end_hooks: List[EndOfEpochHook] = []
         self.__clip_gradient_norm = clip_gradient_norm
+        self.__enable_amp = enable_amp
 
         self.__target_metric = target_validation_metric
         if target_validation_metric is not None:
@@ -182,6 +184,8 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         sum_epoch_loss, running_avg_loss, num_minibatches, num_samples = 0.0, 0.0, 0, 0
         start_time = time.time()
         self.neural_module.train()
+
+        scaler = torch.cuda.amp.GradScaler(enabled=self.__enable_amp)
         with tqdm(desc="Training", disable=not show_progress_bar, leave=False) as progress_bar:
             for step_idx, (mb_data, raw_samples) in enumerate(
                 self.__model.minibatch_iterator(
@@ -194,20 +198,23 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                 )
             ):
                 optimizer.zero_grad()
-                mb_loss = self.neural_module(**mb_data)
-                mb_loss.backward()
+                with torch.cuda.amp.autocast(enabled=self.__enable_amp):
+                    mb_loss = self.neural_module(**mb_data)
+                    if torch.isnan(mb_loss):
+                        raise Exception("Loss has a NaN value.")
 
-                if self.__clip_gradient_norm is not None:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.neural_module.parameters(recurse=True), self.__clip_gradient_norm
-                    )
+                    scaler.scale(mb_loss).backward()
 
-                if torch.isnan(mb_loss):
-                    raise Exception("Loss has a NaN value.")
+                    if self.__clip_gradient_norm is not None:
+                        scaler.unscale_(optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.neural_module.parameters(recurse=True), self.__clip_gradient_norm
+                        )
 
-                optimizer.step()
-                if scheduler is not None:
-                    scheduler.step(epoch_idx=epoch, epoch_step=step_idx)
+                    scaler.step(optimizer)
+                    scaler.update()
+                    if scheduler is not None:
+                        scheduler.step(epoch_idx=epoch, epoch_step=step_idx)
 
                 num_minibatches += 1
                 num_samples += len(raw_samples)
@@ -258,7 +265,8 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                 shuffle_input=False,
                 parallelize=parallelize,
             ):
-                mb_loss = self.neural_module(**mb_data)
+                with torch.cuda.amp.autocast(enabled=self.__enable_amp):
+                    mb_loss = self.neural_module(**mb_data)
                 num_minibatches += 1
                 num_samples += len(raw_samples)
                 sum_epoch_loss += float(mb_loss.cpu())

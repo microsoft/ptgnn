@@ -30,9 +30,15 @@ class AbstractMessagePassingLayer(nn.Module):
         self, messages: torch.Tensor, message_targets: torch.Tensor, num_nodes, aggregation_fn: str
     ):
         """Utility function to be used by concrete implementors."""
+        # Support AMP
+        msg_dtype = messages.dtype
         return scatter(
-            messages, index=message_targets, dim=0, dim_size=num_nodes, reduce=aggregation_fn
-        )
+            messages.to(torch.float32),
+            index=message_targets,
+            dim=0,
+            dim_size=num_nodes,
+            reduce=aggregation_fn,
+        ).to(msg_dtype)
 
     @property
     @abstractmethod
