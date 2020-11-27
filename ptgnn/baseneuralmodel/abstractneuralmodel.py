@@ -1,6 +1,7 @@
 from typing_extensions import final
 
 import gzip
+import os
 import torch
 from abc import ABC, abstractmethod
 from concurrent import futures
@@ -151,6 +152,7 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
 
     # region Saving/Loading
     def save(self, path: Path, model: TNeuralModule) -> None:
+        os.makedirs(os.path.dirname(str(path)), exist_ok=True)
         with gzip.open(path, "wb") as f:
             torch.save((self, model), f)
 
