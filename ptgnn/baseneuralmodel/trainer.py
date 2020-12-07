@@ -147,6 +147,9 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             json.dumps(dict(self.__model.model_definition), indent=2),
         )
 
+        self.LOGGER.info("Saving model with finalized metadata.")
+        self.__save_checkpoint()
+
     def __save_checkpoint(self) -> None:
         self.__model.save(self.__checkpoint_location, self.neural_module)
 
@@ -337,9 +340,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         :param shuffle_training_data: shuffle the incoming data from `training_data`.
         """
         if initialize_metadata:
-            self.__load_metadata_and_create_network(training_data, parallelize, show_progress_bar)
-            self.LOGGER.info("Saving model with finalized metadata.")
-            self.__save_checkpoint()
+            self.load_metadata_and_create_network(training_data, parallelize, show_progress_bar)
 
         self.LOGGER.info(
             "Model has %s trainable parameters.",
