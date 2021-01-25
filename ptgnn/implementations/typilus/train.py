@@ -149,7 +149,7 @@ def run(arguments):
 
     initialize_metadata = True
     restore_path = arguments.get("--restore-path", None)
-    if restore_path:
+    if restore_path or (arguments["--aml"] and model_path.exists()):
         initialize_metadata = False
         model, nn = Graph2Class.restore_model(Path(restore_path))
     else:
