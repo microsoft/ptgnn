@@ -269,9 +269,10 @@ class GraphNeuralNetworkModel(
         for edge_type in datapoint.edges:
             self.__edge_types_mdata.add(edge_type)
 
-        if datapoint.edge_features is not None:
-            for edge_feature in datapoint.edge_features.values():
-                self.__edge_embedding_model.update_metadata_from(edge_feature)
+        if datapoint.edge_features is not None and self.__edge_embedding_model is not None:
+            for edge_features in datapoint.edge_features.values():
+                for edge_feature in edge_features:
+                    self.__edge_embedding_model.update_metadata_from(edge_feature)
 
     def finalize_metadata(self) -> None:
         self.LOGGER.info("Found %s edge types in data.", len(self.__edge_types_mdata))
@@ -334,9 +335,12 @@ class GraphNeuralNetworkModel(
             tensorized_edge_features = []
             for edge_type in self.__edge_idx_to_type:
                 edge_features = datapoint.edge_features.get(edge_type)
-                tensorized_edge_features.append(
-                    [self.__edge_embedding_model.tensorize(e) for e in edge_features]
-                )
+                if edge_features is None:
+                    tensorized_edge_features.append([])
+                else:
+                    tensorized_edge_features.append(
+                        [self.__edge_embedding_model.tensorize(e) for e in edge_features]
+                    )
 
         tensorized_data = TensorizedGraphData(
             adjacency_lists=list(self.__iterate_edge_types(datapoint)),
@@ -364,7 +368,10 @@ class GraphNeuralNetworkModel(
         return {
             "node_data_mb": self.__node_embedding_model.initialize_minibatch(),
             "adjacency_lists": [([], []) for _ in range(len(self.__edge_types))],
-            "edge_feature_data": [[] for _ in range(len(self.__edge_types))],
+            "edge_feature_data": [
+                self.__edge_embedding_model.initialize_minibatch()
+                for _ in range(len(self.__edge_types))
+            ],
             "num_nodes_per_graph": [],
             "reference_node_graph_idx": defaultdict(list),
             "reference_node_ids": defaultdict(list),
@@ -410,9 +417,10 @@ class GraphNeuralNetworkModel(
                 sample_adj_list_for_edge_type[1] + nodes_in_mb_so_far
             )
             if self.__edge_embedding_model is not None:
-                self.__edge_embedding_model.extend_minibatch_with(
-                    edge_features, mb_edge_feature_data
-                )
+                for edge_feature in edge_features:
+                    self.__edge_embedding_model.extend_minibatch_with(
+                        edge_feature, mb_edge_feature_data
+                    )
 
         for ref_name, ref_nodes in tensorized_datapoint.reference_nodes.items():
             partial_minibatch["reference_node_graph_idx"][ref_name].extend(
