@@ -370,6 +370,8 @@ class GraphNeuralNetworkModel(
             "adjacency_lists": [([], []) for _ in range(len(self.__edge_types))],
             "edge_feature_data": [
                 self.__edge_embedding_model.initialize_minibatch()
+                if self.__edge_embedding_model is not None
+                else []
                 for _ in range(len(self.__edge_types))
             ],
             "num_nodes_per_graph": [],
