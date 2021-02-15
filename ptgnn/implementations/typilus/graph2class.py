@@ -107,7 +107,7 @@ class Graph2Class(
 ):
     def __init__(
         self,
-        gnn_model: GraphNeuralNetworkModel[str, Any],
+        gnn_model: GraphNeuralNetworkModel,
         max_num_classes: int = 100,
         try_simplify_unks: bool = True,
     ):
@@ -118,7 +118,7 @@ class Graph2Class(
         self.__tensorize_samples_with_no_annotation = False
         self.__tensorize_keep_original_supernode_idx = False
 
-    def __convert(self, typilus_graph: TypilusGraph) -> Tuple[GraphData[str], List[str]]:
+    def __convert(self, typilus_graph: TypilusGraph) -> Tuple[GraphData[str, None], List[str]]:
         def get_adj_list(adjacency_dict):
             for from_node_idx, to_node_idxs in adjacency_dict.items():
                 from_node_idx = int(from_node_idx)
@@ -149,7 +149,7 @@ class Graph2Class(
             supernode_annotations.append(enforce_not_None(supernode_data["annotation"]))
 
         return (
-            GraphData[str](
+            GraphData[str, None](
                 node_information=typilus_graph["nodes"],
                 edges=edges,
                 reference_nodes={

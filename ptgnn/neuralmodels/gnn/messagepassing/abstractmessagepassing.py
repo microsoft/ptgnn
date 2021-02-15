@@ -16,6 +16,7 @@ class AbstractMessagePassingLayer(nn.Module):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         """
         :param node_states: A [num_nodes, D] matrix containing the states of all nodes.
@@ -23,6 +24,8 @@ class AbstractMessagePassingLayer(nn.Module):
         :param node_to_graph_idx:
         :param reference_node_ids:
         :param reference_node_graph_idx:
+        :param edge_features: A list of [num_edges, H] with edge features.
+            Has the size of `adjacency_lists`.
         :return: the next node states in a [num_nodes, D'] matrix.
         """
 

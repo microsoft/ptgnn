@@ -36,6 +36,8 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         node_embedder: nn.Module,
         introduce_backwards_edges: bool,
         add_self_edges: bool,
+        edge_dropout_rate: float = 0.0,
+        edge_feature_embedder: Optional[nn.Module] = None,
     ):
         """
         :param message_passing_layers: A list of message passing layers.
@@ -43,12 +45,16 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         :param introduce_backwards_edges: If `True` special backwards edges should be automatically created.
         :param add_self_edges: If `True` self-edges will be added. These edges connect the same node across
             multiple timesteps.
+        :param edge_dropout_rate: remove random pct of edges
         """
         super().__init__()
         self.__message_passing_layers = nn.ModuleList(message_passing_layers)
         self.__node_embedder = node_embedder
         self.__introduce_backwards_edges = introduce_backwards_edges
         self.__add_self_edges = add_self_edges
+        assert 0 <= edge_dropout_rate < 1
+        self.__edge_dropout_rate = edge_dropout_rate
+        self.__edge_feature_embedder = edge_feature_embedder
 
     @property
     def input_node_state_dim(self) -> int:
@@ -78,6 +84,7 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         self,
         node_representations: torch.Tensor,
         adjacency_lists: List[Tuple[torch.Tensor, torch.Tensor]],
+        edge_feature_embeddings: List[torch.Tensor],
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
@@ -88,12 +95,29 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         :param adjacency_lists: a list of [num_edges_per_type, 2] adjacency lists per edge type.
                 The order is fixed across runs. Backwards edges and self-edges are included if
                 the appropriate hyperparameter is set.
+        :param edge_feature_embeddings: a list of the edge features per edge-type.
         :param node_to_graph_idx: A mapping that tells us which graph the node belongs to
         :param reference_node_ids: A dictionary indicating the reference node index
         :param reference_node_graph_idx: A dictionary indicating the graph index for reference node
         :param return_all_states: Whether to return all states
         :return: a [num_nodes, output_hidden_dimension] matrix of the output representations
         """
+        if self.__edge_dropout_rate > 0 and self.training:
+            dropped_adj_list, dropped_edge_features = [], []
+            for (edge_sources_idxs, edge_target_idxs), edge_features in zip(
+                adjacency_lists, edge_feature_embeddings
+            ):
+                mask = (
+                    torch.rand_like(edge_sources_idxs, dtype=torch.float32)
+                    > self.__edge_dropout_rate
+                )
+                dropped_adj_list.append(
+                    (edge_sources_idxs.masked_select(mask), edge_target_idxs.masked_select(mask))
+                )
+                dropped_edge_features.append(edge_features[mask])
+            adjacency_lists = dropped_adj_list
+            edge_feature_embeddings = dropped_edge_features
+
         all_states = [node_representations]
         for mp_layer_idx, mp_layer in enumerate(self.__message_passing_layers):
             node_representations = mp_layer(
@@ -102,6 +126,7 @@ class GraphNeuralNetwork(ModuleWithMetrics):
                 node_to_graph_idx=node_to_graph_idx,
                 reference_node_ids=reference_node_ids,
                 reference_node_graph_idx=reference_node_graph_idx,
+                edge_features=edge_feature_embeddings,
             )
             all_states.append(node_representations)
         if return_all_states:
@@ -111,8 +136,9 @@ class GraphNeuralNetwork(ModuleWithMetrics):
     def forward(
         self,
         *,
-        node_data: torch.Tensor,
+        node_data,
         adjacency_lists: List[Tuple[torch.Tensor, torch.Tensor]],
+        edge_feature_data: List,
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
@@ -121,8 +147,10 @@ class GraphNeuralNetwork(ModuleWithMetrics):
     ) -> GnnOutput:
         """
 
-        :param node_data: A [num_nodes, D_input] matrix of the initial node representations.
+        :param node_data: The data for the node embedder to compute the initial node representations.
         :param adjacency_lists: A list of [num_edges, 2] matrices for each edge type.
+        :param edge_feature_data: A list of the same size as `adjacency_lists` with the data
+            to compute the edge features.
         :param node_to_graph_idx: A [num_nodes] vector that contains the index of the graph it belongs to.
         :param reference_node_ids: A dictionary with values the indices of the reference nodes.
         :param reference_node_graph_idx: A dictionary with values the index of the graph that each
@@ -131,18 +159,36 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         """
         initial_node_representations = self.__node_embedder(**node_data)  # [num_nodes, D]
 
+        if self.__edge_feature_embedder is None:
+            edge_feature_embeddings = [
+                torch.empty(f.shape[0], 0, device=node_to_graph_idx.device)
+                for f, _ in adjacency_lists
+            ]
+        else:
+            edge_feature_embeddings = [
+                self.__edge_feature_embedder(**edge_data) for edge_data in edge_feature_data
+            ]
+
         if self.__introduce_backwards_edges:
             adjacency_lists += [(t, f) for f, t in adjacency_lists]
+            edge_feature_embeddings += [e for e in edge_feature_embeddings]
+
         if self.__add_self_edges:
-            num_nodes = initial_node_representations.shape[0]
-            idents = torch.arange(
-                num_nodes, dtype=torch.int64, device=initial_node_representations.device
-            )
+            num_nodes = node_to_graph_idx.shape[0]
+            idents = torch.arange(num_nodes, dtype=torch.int64, device=node_to_graph_idx.device)
             adjacency_lists.append((idents, idents))
+            edge_feature_embeddings.append(
+                torch.zeros(
+                    num_nodes,
+                    edge_feature_embeddings[-1].shape[-1],
+                    device=node_to_graph_idx.device,
+                )
+            )
 
         output_representations = self.gnn(
             initial_node_representations,
             adjacency_lists,
+            edge_feature_embeddings,
             node_to_graph_idx,
             reference_node_ids,
             reference_node_graph_idx,
@@ -152,7 +198,7 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         with torch.no_grad():
             self.__num_edges += int(sum(adj[0].shape[0] for adj in adjacency_lists))
             self.__num_graphs += int(num_graphs)
-            self.__num_nodes += int(initial_node_representations.shape[0])
+            self.__num_nodes += int(node_to_graph_idx.shape[0])
         return GnnOutput(
             input_node_representations=initial_node_representations,
             output_node_representations=output_representations,
@@ -164,13 +210,15 @@ class GraphNeuralNetwork(ModuleWithMetrics):
 
 
 TNodeData = TypeVar("TNodeData")
+TEdgeData = TypeVar("TEdgeData")
 TTensorizedNodeData = TypeVar("TTensorizedNodeData")
+TTensorizedEdgeData = TypeVar("TTensorizedEdgeData")
 
 
 class GraphNeuralNetworkModel(
     AbstractNeuralModel[
-        GraphData[TNodeData],
-        TensorizedGraphData[TTensorizedNodeData],
+        GraphData[TNodeData, TEdgeData],
+        TensorizedGraphData[TTensorizedNodeData, TTensorizedEdgeData],
         GraphNeuralNetwork,
     ],
 ):
@@ -185,7 +233,11 @@ class GraphNeuralNetworkModel(
         max_graph_edges: int = 100000,
         introduce_backwards_edges: bool = True,
         stop_extending_minibatch_after_num_nodes: int = 10000,
-        add_self_edges: bool = False
+        add_self_edges: bool = False,
+        edge_dropout_rate: float = 0.0,
+        edge_representation_model: Optional[
+            AbstractNeuralModel[TEdgeData, TTensorizedEdgeData, nn.Module]
+        ] = None
     ):
         """
         :param node_representation_model: A model that can convert the data of each node into their
@@ -196,6 +248,7 @@ class GraphNeuralNetworkModel(
         super().__init__()
         self.__message_passing_layers_creator: Final = message_passing_layer_creator
         self.__node_embedding_model: Final = node_representation_model
+        self.__edge_embedding_model: Final = edge_representation_model
         self.max_nodes_per_graph: Final = max_nodes_per_graph
         self.max_graph_edges: Final = max_graph_edges
         self.introduce_backwards_edges: Final = introduce_backwards_edges
@@ -203,17 +256,22 @@ class GraphNeuralNetworkModel(
             stop_extending_minibatch_after_num_nodes
         )
         self.add_self_edges: Final = add_self_edges
+        self.__edge_dropout_rate = edge_dropout_rate
 
     # region Metadata Loading
     def initialize_metadata(self) -> None:
         self.__edge_types_mdata: Set[str] = set()
 
-    def update_metadata_from(self, datapoint: GraphData) -> None:
+    def update_metadata_from(self, datapoint: GraphData[TNodeData, TEdgeData]) -> None:
         for node in datapoint.node_information:
             self.__node_embedding_model.update_metadata_from(node)
 
         for edge_type in datapoint.edges:
             self.__edge_types_mdata.add(edge_type)
+
+        if datapoint.edge_features is not None:
+            for edge_feature in datapoint.edge_features.values():
+                self.__edge_embedding_model.update_metadata_from(edge_feature)
 
     def finalize_metadata(self) -> None:
         self.LOGGER.info("Found %s edge types in data.", len(self.__edge_types_mdata))
@@ -231,11 +289,18 @@ class GraphNeuralNetworkModel(
         return num_types
 
     def build_neural_module(self) -> GraphNeuralNetwork:
+        if self.__edge_embedding_model is None:
+            edge_feature_embedder = None
+        else:
+            edge_feature_embedder = self.__edge_embedding_model.build_neural_module()
+
         gnn = GraphNeuralNetwork(
             self.__message_passing_layers_creator(self._num_edge_types),
             node_embedder=self.__node_embedding_model.build_neural_module(),
             introduce_backwards_edges=self.introduce_backwards_edges,
             add_self_edges=self.add_self_edges,
+            edge_dropout_rate=self.__edge_dropout_rate,
+            edge_feature_embedder=edge_feature_embedder,
         )
         del self.__message_passing_layers_creator
         return gnn
@@ -246,7 +311,7 @@ class GraphNeuralNetworkModel(
         return self.__edge_types[name]
 
     def __iterate_edge_types(
-        self, data_to_load: GraphData[TNodeData]
+        self, data_to_load: GraphData[TNodeData, TEdgeData]
     ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
         for edge_type in self.__edge_idx_to_type:
             adjacency_list = data_to_load.edges.get(edge_type)
@@ -257,24 +322,35 @@ class GraphNeuralNetworkModel(
                 yield np.zeros(0, dtype=np.int32), np.zeros(0, dtype=np.int32)
 
     def tensorize(
-        self, datapoint: GraphData[TNodeData]
-    ) -> Optional[TensorizedGraphData[TTensorizedNodeData]]:
+        self, datapoint: GraphData[TNodeData, TEdgeData]
+    ) -> Optional[TensorizedGraphData[TTensorizedNodeData, TTensorizedEdgeData]]:
+        if len(datapoint.node_information) > self.max_nodes_per_graph:
+            self.LOGGER.warning("Dropping graph with %s nodes." % len(datapoint.node_information))
+            return None
+
+        if self.__edge_embedding_model is None:
+            tensorized_edge_features = None
+        else:
+            tensorized_edge_features = []
+            for edge_type in self.__edge_idx_to_type:
+                edge_features = datapoint.edge_features.get(edge_type)
+                tensorized_edge_features.append(
+                    [self.__edge_embedding_model.tensorize(e) for e in edge_features]
+                )
+
         tensorized_data = TensorizedGraphData(
             adjacency_lists=list(self.__iterate_edge_types(datapoint)),
             node_tensorized_data=[
                 enforce_not_None(self.__node_embedding_model.tensorize(ni))
                 for ni in datapoint.node_information
             ],
+            edge_features=tensorized_edge_features,
             reference_nodes={
                 n: np.array(np.array(refs, dtype=np.int32))
                 for n, refs in datapoint.reference_nodes.items()
             },
             num_nodes=len(datapoint.node_information),
         )
-
-        if tensorized_data.num_nodes > self.max_nodes_per_graph:
-            self.LOGGER.warning("Dropping graph with %s nodes." % tensorized_data.num_nodes)
-            return None
 
         num_edges = sum(len(adj) for adj in tensorized_data.adjacency_lists)
         if num_edges > self.max_graph_edges:
@@ -288,6 +364,7 @@ class GraphNeuralNetworkModel(
         return {
             "node_data_mb": self.__node_embedding_model.initialize_minibatch(),
             "adjacency_lists": [([], []) for _ in range(len(self.__edge_types))],
+            "edge_feature_data": [[] for _ in range(len(self.__edge_types))],
             "num_nodes_per_graph": [],
             "reference_node_graph_idx": defaultdict(list),
             "reference_node_ids": defaultdict(list),
@@ -295,7 +372,9 @@ class GraphNeuralNetworkModel(
         }
 
     def extend_minibatch_with(
-        self, tensorized_datapoint: TensorizedGraphData, partial_minibatch: Dict[str, Any]
+        self,
+        tensorized_datapoint: TensorizedGraphData[TTensorizedNodeData, TTensorizedEdgeData],
+        partial_minibatch: Dict[str, Any],
     ) -> bool:
         continue_extending = True
         for node_tensorized_info in tensorized_datapoint.node_tensorized_data:
@@ -306,9 +385,23 @@ class GraphNeuralNetworkModel(
         graph_idx = len(partial_minibatch["num_nodes_per_graph"])
 
         adj_list = partial_minibatch["adjacency_lists"]
+        tensorized_edge_feature_data = partial_minibatch["edge_feature_data"]
         nodes_in_mb_so_far = partial_minibatch["num_nodes_in_mb"]
-        for sample_adj_list_for_edge_type, mb_adj_lists_for_edge_type in zip(
-            tensorized_datapoint.adjacency_lists, adj_list
+
+        all_edge_features = tensorized_datapoint.edge_features
+        if all_edge_features is None:
+            all_edge_features = [None for _ in range(len(adj_list))]
+
+        for (
+            sample_adj_list_for_edge_type,
+            edge_features,
+            mb_adj_lists_for_edge_type,
+            mb_edge_feature_data,
+        ) in zip(
+            tensorized_datapoint.adjacency_lists,
+            all_edge_features,
+            adj_list,
+            tensorized_edge_feature_data,
         ):
             mb_adj_lists_for_edge_type[0].append(
                 sample_adj_list_for_edge_type[0] + nodes_in_mb_so_far
@@ -316,6 +409,10 @@ class GraphNeuralNetworkModel(
             mb_adj_lists_for_edge_type[1].append(
                 sample_adj_list_for_edge_type[1] + nodes_in_mb_so_far
             )
+            if self.__edge_embedding_model is not None:
+                self.__edge_embedding_model.extend_minibatch_with(
+                    edge_features, mb_edge_feature_data
+                )
 
         for ref_name, ref_nodes in tensorized_datapoint.reference_nodes.items():
             partial_minibatch["reference_node_graph_idx"][ref_name].extend(
@@ -335,6 +432,15 @@ class GraphNeuralNetworkModel(
     def finalize_minibatch(
         self, accumulated_minibatch_data: Dict[str, Any], device: Union[str, torch.device]
     ) -> Dict[str, Any]:
+
+        if self.__edge_embedding_model is None:
+            edge_feature_data = [None for _ in accumulated_minibatch_data["edge_feature_data"]]
+        else:
+            edge_feature_data = [
+                self.__edge_embedding_model.finalize_minibatch(edge_features_for_type, device)
+                for edge_features_for_type in accumulated_minibatch_data["edge_feature_data"]
+            ]
+
         return {
             "node_data": self.__node_embedding_model.finalize_minibatch(
                 accumulated_minibatch_data["node_data_mb"], device
@@ -346,6 +452,7 @@ class GraphNeuralNetworkModel(
                 )
                 for adjFrom, adjTo in accumulated_minibatch_data["adjacency_lists"]
             ],
+            "edge_feature_data": edge_feature_data,
             "node_to_graph_idx": torch.tensor(
                 list(
                     self.__create_node_to_graph_idx(

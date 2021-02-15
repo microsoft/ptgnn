@@ -112,6 +112,7 @@ def create_graph2class_gnn_model(hidden_state_size: int = 64, dropout_rate: floa
             introduce_backwards_edges=True,
             add_self_edges=True,
             stop_extending_minibatch_after_num_nodes=120000,
+            edge_dropout_rate=0.0,
         ),
         max_num_classes=100,
     )
@@ -149,9 +150,12 @@ def run(arguments):
 
     initialize_metadata = True
     restore_path = arguments.get("--restore-path", None)
-    if restore_path or (arguments["--aml"] and model_path.exists()):
+    if restore_path:
         initialize_metadata = False
         model, nn = Graph2Class.restore_model(Path(restore_path))
+    elif arguments["--aml"] and model_path.exists():
+        initialize_metadata = False
+        model, nn = Graph2Class.restore_model(model_path)
     else:
         nn = None
         model = create_graph2class_gnn_model()
