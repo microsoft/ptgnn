@@ -33,6 +33,7 @@ class AbstractGlobalGraphExchange(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         e = ElementsToSummaryRepresentationInput(
             element_embeddings=node_states,

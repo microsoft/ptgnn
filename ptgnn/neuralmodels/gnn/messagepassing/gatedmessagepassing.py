@@ -13,12 +13,13 @@ class GatedMessagePassingLayer(AbstractMessagePassingLayer):
         num_edge_types: int,
         message_aggregation_function: str,
         dropout_rate: float = 0.0,
+        edge_feature_dimension: int = 0,
     ):
         super().__init__()
 
         self.__edge_message_transformation_layers = nn.ModuleList(
             [
-                nn.Linear(state_dimension, message_dimension, bias=False)
+                nn.Linear(state_dimension + edge_feature_dimension, message_dimension, bias=False)
                 for _ in range(num_edge_types)
             ]
         )
@@ -40,20 +41,23 @@ class GatedMessagePassingLayer(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         message_targets = torch.cat([adj_list[1] for adj_list in adjacency_lists])  # num_messages
         assert len(adjacency_lists) == len(self.__edge_message_transformation_layers)
 
         all_messages = []
-        for edge_type_idx, (adj_list, edge_transformation_layer) in enumerate(
-            zip(adjacency_lists, self.__edge_message_transformation_layers)
+        for edge_type_idx, (adj_list, features, edge_transformation_layer) in enumerate(
+            zip(adjacency_lists, edge_features, self.__edge_message_transformation_layers)
         ):
             edge_sources_idxs = adj_list[0]
             edge_source_states = nn.functional.embedding(
                 edge_sources_idxs, node_states
             )  # [num_edges_of_type_edge_type_idx, H]
             all_messages.append(
-                edge_transformation_layer(self.__dropout(edge_source_states))
+                edge_transformation_layer(
+                    self.__dropout(torch.cat([edge_source_states, features], -1))
+                )
             )  # [num_edges_of_type_edge_type_idx, D]
 
         aggregated_messages = self._aggregate_messages(

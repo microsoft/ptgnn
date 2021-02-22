@@ -31,6 +31,7 @@ class GraphNorm(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         per_graph_mean = scatter_mean(
             node_states, index=node_to_graph_idx, dim=0

@@ -81,6 +81,7 @@ class MultiHeadSelfAttentionMessagePassing(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],  # Not used
     ) -> torch.Tensor:
         if self.__target_reference == "all":
             relevant_node_states = node_states
