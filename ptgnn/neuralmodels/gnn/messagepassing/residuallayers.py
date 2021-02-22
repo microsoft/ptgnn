@@ -26,6 +26,7 @@ class _ResidualOriginLayer(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         self.__target_layer._original_input = node_states
         return node_states
@@ -47,6 +48,7 @@ class MeanResidualLayer(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         assert self._original_input is not None, "Initial Pass Through Layer was not used."
         out = torch.stack((self._original_input, node_states), dim=-1).mean(dim=-1)
@@ -78,6 +80,7 @@ class ConcatResidualLayer(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         assert self._original_input is not None, "Initial Pass Through Layer was not used."
         out = torch.cat((self._original_input, node_states), dim=-1)
@@ -123,6 +126,7 @@ class LinearResidualLayer(AbstractMessagePassingLayer):
         node_to_graph_idx: torch.Tensor,
         reference_node_ids: Dict[str, torch.Tensor],
         reference_node_graph_idx: Dict[str, torch.Tensor],
+        edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
         assert self._original_input is not None, "Initial Pass Through Layer was not used."
         out = self.__linear_combination(torch.cat((self._original_input, node_states), axis=-1))

@@ -152,7 +152,7 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
 
     # region Saving/Loading
     def save(self, path: Path, model: TNeuralModule) -> None:
-        os.makedirs(os.path.dirname(str(path)), exist_ok=True)
+        os.makedirs(os.path.dirname(str(path.absolute())), exist_ok=True)
         with gzip.open(path, "wb") as f:
             torch.save((self, model), f)
 
