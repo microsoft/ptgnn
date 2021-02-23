@@ -20,7 +20,7 @@ setup(
         "dpu-utils>=0.2.17",
         "jellyfish",
         "numpy",
-        "torch-scatter==2.0.4",
+        "torch-scatter>=2.0.4",
         "torch>=1.4.0",
         "tqdm",
         "typing-extensions",
