@@ -6,7 +6,7 @@ RUN python3.8 -m pip install --no-cache-dir torch==1.7.1+cu101 torchvision==0.8.
 
 RUN python3.8 -m pip install --upgrade wheel pip cffi
 RUN python3.8 -m pip install --no-cache-dir sentencepiece==0.1.90
-RUN python3.8 -m pip install --no-cache-dir azureml-sdk annoy chardet datasketch docopt jedi libcst msgpack opentelemetry-api opentelemetry-exporter-jaeger opentelemetry-exporter-prometheus opentelemetry-sdk prometheus-client pystache pyzmq tqdm typing_extensions dpu-utils
+RUN python3.8 -m pip install --no-cache-dir azureml-sdk chardet datasketch docopt jedi libcst msgpack tqdm typing_extensions dpu-utils
 
 
 # ReInstall torch scatter

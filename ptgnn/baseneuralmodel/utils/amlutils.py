@@ -18,11 +18,11 @@ def configure_logging(aml_ctx) -> str:
     file_handler.setFormatter(formatter)
     base_logger.addHandler(file_handler)
 
-    if aml_ctx is None:
-        # AML seems to be adding its own logger behind the scenes, no need to add another one.
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setFormatter(formatter)
-        base_logger.addHandler(stream_handler)
+    # if aml_ctx is None:
+    #     # AML seems to be adding its own logger behind the scenes, no need to add another one.
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    base_logger.addHandler(stream_handler)
 
     return log_path
 
