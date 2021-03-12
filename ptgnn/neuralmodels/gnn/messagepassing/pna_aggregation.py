@@ -32,6 +32,8 @@ class PnaMessageAggregation(AbstractMessageAggregation):
             reduce="sum",
         )
 
+        msg_dtype = messages.dtype
+        messages = messages.to(torch.float32)
         sum_agg = scatter(messages, index=message_targets, dim=0, dim_size=num_nodes, reduce="sum")
         mean_agg = sum_agg / (degree.unsqueeze(-1) + 1e-5)
         max_agg = scatter(messages, index=message_targets, dim=0, dim_size=num_nodes, reduce="max")
@@ -42,7 +44,9 @@ class PnaMessageAggregation(AbstractMessageAggregation):
             scatter(std_components, index=message_targets, dim=0, dim_size=num_nodes, reduce="sum")
         )
 
-        all_aggregations = torch.cat([sum_agg, mean_agg, max_agg, min_agg, std], dim=-1)
+        all_aggregations = torch.cat([sum_agg, mean_agg, max_agg, min_agg, std], dim=-1).to(
+            msg_dtype
+        )
 
         scaler_p1 = torch.log(degree.float() + 1).unsqueeze(-1) / self._delta
         scaler_m1 = 1 / (scaler_p1 + 1e-3)
