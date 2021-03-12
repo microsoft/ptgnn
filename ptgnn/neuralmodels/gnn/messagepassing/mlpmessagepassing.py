@@ -1,8 +1,11 @@
 import torch
 from torch import nn
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from ptgnn.neuralmodels.gnn.messagepassing.abstractmessagepassing import AbstractMessagePassingLayer
+from ptgnn.neuralmodels.gnn.messagepassing.abstractmessagepassing import (
+    AbstractMessageAggregation,
+    AbstractMessagePassingLayer,
+)
 from ptgnn.neuralmodels.mlp import MLP
 
 
@@ -13,7 +16,7 @@ class MlpMessagePassingLayer(AbstractMessagePassingLayer):
         output_state_dimension: int,
         message_dimension: int,
         num_edge_types: int,
-        message_aggregation_function: str,
+        message_aggregation_function: Union[str, AbstractMessageAggregation],
         message_activation: Optional[nn.Module] = nn.GELU(),
         use_target_state_as_message_input: bool = True,
         mlp_hidden_layers: Union[List[int], int] = 0,
@@ -43,13 +46,18 @@ class MlpMessagePassingLayer(AbstractMessagePassingLayer):
             ]
         )
         self.__aggregation_fn = message_aggregation_function
+        if isinstance(message_aggregation_function, str):
+            aggregated_state_size = message_dimension
+        else:
+            aggregated_state_size = self.__aggregation_fn.output_state_size(message_dimension)
+
         self.__message_activation = message_activation
 
         state_update_layers: List[nn.Module] = []
         if use_layer_norm:
-            state_update_layers.append(nn.LayerNorm(message_dimension))
+            state_update_layers.append(nn.LayerNorm(aggregated_state_size))
         if use_dense_layer:
-            state_update_layers.append(nn.Linear(message_dimension, output_state_dimension))
+            state_update_layers.append(nn.Linear(aggregated_state_size, output_state_dimension))
             nn.init.xavier_uniform_(state_update_layers[-1].weight)
             if dense_activation is not None:
                 state_update_layers.append(dense_activation)
@@ -87,12 +95,19 @@ class MlpMessagePassingLayer(AbstractMessagePassingLayer):
                 edge_transformation_layer(torch.cat([message_input, features], dim=-1))
             )
 
-        aggregated_messages = self._aggregate_messages(
-            messages=torch.cat(all_messages, dim=0),
-            message_targets=torch.cat(all_message_targets, dim=0),
-            num_nodes=node_states.shape[0],
-            aggregation_fn=self.__aggregation_fn,
-        )
+        if isinstance(self.__aggregation_fn, AbstractMessageAggregation):
+            aggregated_messages = self.__aggregation_fn(
+                messages=torch.cat(all_messages, dim=0),
+                message_targets=torch.cat(all_message_targets, dim=0),
+                num_nodes=node_states.shape[0],
+            )
+        else:
+            aggregated_messages = self._aggregate_messages(
+                messages=torch.cat(all_messages, dim=0),
+                message_targets=torch.cat(all_message_targets, dim=0),
+                num_nodes=node_states.shape[0],
+                aggregation_fn=self.__aggregation_fn,
+            )
 
         if self.__message_activation is not None:
             aggregated_messages = self.__message_activation(aggregated_messages)

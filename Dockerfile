@@ -12,5 +12,6 @@ RUN python3.8 -m pip install --no-cache-dir azureml-sdk chardet datasketch docop
 # ReInstall torch scatter
 RUN python3.8 -m pip install --no-cache-dir --upgrade torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.0+cu101.html
 
+
 # Test installation
 RUN python3.8 -c "import torch_scatter"

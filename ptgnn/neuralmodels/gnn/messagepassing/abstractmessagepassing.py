@@ -52,3 +52,13 @@ class AbstractMessagePassingLayer(nn.Module):
     @abstractmethod
     def output_state_dimension(self) -> int:
         pass
+
+
+class AbstractMessageAggregation(nn.Module):
+    @abstractmethod
+    def forward(self, messages: torch.Tensor, message_targets: torch.Tensor, num_nodes):
+        pass
+
+    @abstractmethod
+    def output_state_size(self, message_input_size: int) -> int:
+        pass
