@@ -81,8 +81,8 @@ class Graph2ClassModule(ModuleWithMetrics):
     def _logits(self, graph_mb_data):
         graph_output: GnnOutput = self.__gnn(**graph_mb_data)
         # Gather the output representation of the nodes of interest
-        supernode_idxs = graph_output.node_idx_references["supernodes"]
-        supernode_graph_idx = graph_output.node_graph_idx_reference["supernodes"]
+        supernode_idxs = graph_output.reference_nodes_idx["supernodes"]
+        supernode_graph_idx = graph_output.reference_nodes_graph_idx["supernodes"]
         supernode_representations = graph_output.output_node_representations[
             supernode_idxs
         ]  # [num_supernodes_in_mb, D]
