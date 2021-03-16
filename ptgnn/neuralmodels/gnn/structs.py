@@ -55,9 +55,25 @@ class GnnOutput(NamedTuple):
     node_to_graph_idx: torch.Tensor
     # Which are the idxs of the referenced nodes (in the minibatch)?
     node_idx_references: Dict[str, torch.Tensor]
-    # Which graph do the referenced nodes belong in?
+    # Which graph do the referenced nodes belong to?
     node_graph_idx_reference: Dict[str, torch.Tensor]
     num_graphs: int
+
+    @property
+    def reference_nodes_idx(self) -> Dict[str, torch.Tensor]:
+        """
+        Which are the idxs of the referenced nodes (within the minibatch).
+        Better alias for `node_idx_references`.
+        """
+        return self.node_idx_references
+
+    @property
+    def reference_nodes_graph_idx(self) -> Dict[str, torch.Tensor]:
+        """
+        Which graph do the referenced nodes belong to?
+        Better alias for `node_graph_idx_reference`.
+        """
+        return self.node_graph_idx_reference
 
 
 class AbstractNodeEmbedder(ABC):
