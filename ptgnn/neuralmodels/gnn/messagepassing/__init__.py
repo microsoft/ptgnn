@@ -1,4 +1,5 @@
 from .abstractmessagepassing import AbstractMessagePassingLayer
+from .egcmessagepassing import EGCMessagePassingLayer
 from .gatedmessagepassing import GatedMessagePassingLayer
 from .globalgraphexchange import AbstractGlobalGraphExchange, GruGlobalStateUpdate
 from .mlpmessagepassing import MlpMessagePassingLayer
