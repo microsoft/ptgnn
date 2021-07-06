@@ -1,19 +1,24 @@
 import logging
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
-def configure_logging(aml_ctx) -> str:
+def configure_logging(aml_ctx, rank: Optional[int] = None) -> str:
     os.makedirs("logs", exist_ok=True)
 
     base_logger = logging.getLogger()
     base_logger.setLevel(logging.INFO)
 
     log_path = os.path.join("logs", "full.log")
-    formatter = logging.Formatter(
-        "%(asctime)s [%(name)-35.35s @ %(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
-    )
+    if rank is None:
+        formatter = logging.Formatter(
+            "%(asctime)s [%(name)-35.35s @ %(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
+        )
+    else:
+        formatter = logging.Formatter(
+            f"%(asctime)s [%(name)-35.35s @ rank={rank}] [%(levelname)-5.5s]  %(message)s"
+        )
     file_handler = logging.FileHandler(log_path)
     file_handler.setFormatter(formatter)
     base_logger.addHandler(file_handler)

@@ -1,11 +1,18 @@
 from typing_extensions import final
 
 import gzip
+import multiprocessing
 import os
 import torch
 from abc import ABC, abstractmethod
 from concurrent import futures
-from dpu_utils.utils.iterators import BufferedIterator, ThreadedIterator, shuffled_iterator
+from dpu_utils.utils.iterators import (
+    BufferedIterator,
+    DoubleBufferedIterator,
+    ThreadedIterator,
+    shuffled_iterator,
+)
+from functools import partial
 from itertools import islice
 from pathlib import Path
 from torch import nn
@@ -13,6 +20,7 @@ from typing import (
     Any,
     Dict,
     Generic,
+    Iterable,
     Iterator,
     List,
     Mapping,
@@ -178,6 +186,18 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
         """
         raise NotImplementedError()
 
+    class _TensorizedDataIter(Iterable):
+        def __init__(self, model, dataset_iterator, return_input_data):
+            self._model = model
+            self._dataset_iterator = dataset_iterator
+            self._return_input_data = return_input_data
+
+        def __iter__(self):
+            yield from (
+                (self._model.tensorize(d), d if self._return_input_data else None)
+                for d in self._dataset_iterator
+            )
+
     @final
     def tensorize_dataset(
         self,
@@ -200,11 +220,12 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
         """
         assert self.__metadata_initialized, "Metadata has not been initialized."
         if parallelize:
-            base_iterator = (
-                (self.tensorize(d), d if return_input_data else None) for d in dataset_iterator
-            )
+            base_iterator = self._TensorizedDataIter(self, dataset_iterator, return_input_data)
+
             if use_multiprocessing:
-                for tensorized_sample in BufferedIterator(base_iterator):
+                for tensorized_sample in DoubleBufferedIterator(
+                    base_iterator, max_queue_size_inner=200, max_queue_size_outer=200
+                ):
                     if tensorized_sample[0] is not None:
                         yield tensorized_sample
             else:

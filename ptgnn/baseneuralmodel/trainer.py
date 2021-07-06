@@ -69,32 +69,32 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         self.__neural_network: Optional[TNeuralModule] = None
         self.__checkpoint_location = checkpoint_location
 
-        self.__max_num_epochs = max_num_epochs
-        self.__minibatch_size = minibatch_size
+        self._max_num_epochs = max_num_epochs
+        self._minibatch_size = minibatch_size
         if optimizer_creator is None:
-            self.__create_optimizer = lambda p: torch.optim.Adam(p)
+            self._create_optimizer = lambda p: torch.optim.Adam(p)
         else:
-            self.__create_optimizer = optimizer_creator
+            self._create_optimizer = optimizer_creator
 
-        self.__create_scheduler = scheduler_creator
+        self._create_scheduler = scheduler_creator
 
         self.__metadata_finalized_hooks: List[Callable[[ModelType], None]] = []
-        self.__training_start_hooks: List[
+        self._training_start_hooks: List[
             Callable[[ModelType, TNeuralModule, torch.optim.Optimizer], None]
         ] = []
-        self.__train_epoch_end_hooks: List[EndOfEpochHook] = []
-        self.__validation_epoch_end_hooks: List[EndOfEpochHook] = []
-        self.__clip_gradient_norm = clip_gradient_norm
-        self.__enable_amp = enable_amp
+        self._train_epoch_end_hooks: List[EndOfEpochHook] = []
+        self._validation_epoch_end_hooks: List[EndOfEpochHook] = []
+        self._clip_gradient_norm = clip_gradient_norm
+        self._enable_amp = enable_amp
 
-        self.__target_metric = target_validation_metric
+        self._target_metric = target_validation_metric
         if target_validation_metric is not None:
-            self.__target_metric_higher_is_better = target_validation_metric_higher_is_better
+            self._target_metric_higher_is_better = target_validation_metric_higher_is_better
         else:
             assert (
                 not target_validation_metric_higher_is_better
             ), "When no explicit metric is passed, the validation loss will be used."
-            self.__target_metric_higher_is_better = False
+            self._target_metric_higher_is_better = False
 
     @property
     def model(self) -> AbstractNeuralModel[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]:
@@ -148,9 +148,9 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         )
 
         self.LOGGER.info("Saving model with finalized metadata.")
-        self.__save_checkpoint()
+        self._save_checkpoint()
 
-    def __save_checkpoint(self) -> None:
+    def _save_checkpoint(self) -> None:
         self.__model.save(self.__checkpoint_location, self.neural_module)
 
     def __restore_checkpoint(self, device=None) -> None:
@@ -164,13 +164,13 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
     def register_training_start_hook(
         self, hook: Callable[[ModelType, TNeuralModule, torch.optim.Optimizer], None]
     ) -> None:
-        self.__training_start_hooks.append(hook)
+        self._training_start_hooks.append(hook)
 
     def register_train_epoch_end_hook(self, hook: EndOfEpochHook) -> None:
-        self.__train_epoch_end_hooks.append(hook)
+        self._train_epoch_end_hooks.append(hook)
 
     def register_validation_epoch_end_hook(self, hook: EndOfEpochHook) -> None:
-        self.__validation_epoch_end_hooks.append(hook)
+        self._validation_epoch_end_hooks.append(hook)
 
     def _run_training(
         self,
@@ -188,30 +188,30 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         start_time = time.time()
         self.neural_module.train()
 
-        scaler = torch.cuda.amp.GradScaler(enabled=self.__enable_amp)
+        scaler = torch.cuda.amp.GradScaler(enabled=self._enable_amp)
         with tqdm(desc="Training", disable=not show_progress_bar, leave=False) as progress_bar:
             for step_idx, (mb_data, raw_samples) in enumerate(
                 self.__model.minibatch_iterator(
                     training_tensors(),
                     device=device,
-                    max_minibatch_size=self.__minibatch_size,
+                    max_minibatch_size=self._minibatch_size,
                     yield_partial_minibatches=False,
                     shuffle_input=shuffle_input,
                     parallelize=parallelize,
                 )
             ):
                 optimizer.zero_grad()
-                with torch.cuda.amp.autocast(enabled=self.__enable_amp):
+                with torch.cuda.amp.autocast(enabled=self._enable_amp):
                     mb_loss = self.neural_module(**mb_data)
                     if torch.isnan(mb_loss):
                         raise Exception("Loss has a NaN value.")
 
                     scaler.scale(mb_loss).backward()
 
-                    if self.__clip_gradient_norm is not None:
+                    if self._clip_gradient_norm is not None:
                         scaler.unscale_(optimizer)
                         torch.nn.utils.clip_grad_norm_(
-                            self.neural_module.parameters(recurse=True), self.__clip_gradient_norm
+                            self.neural_module.parameters(recurse=True), self._clip_gradient_norm
                         )
 
                     scaler.step(optimizer)
@@ -245,7 +245,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         self.LOGGER.info("Epoch %i: Train Loss %.2f", epoch + 1, sum_epoch_loss / num_minibatches)
         train_metrics = self.neural_module.report_metrics()
 
-        for epoch_hook in self.__train_epoch_end_hooks:
+        for epoch_hook in self._train_epoch_end_hooks:
             epoch_hook(self.__model, self.neural_module, epoch, train_metrics)
 
         if len(train_metrics) > 0:
@@ -263,12 +263,12 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             for mb_data, raw_samples in self.__model.minibatch_iterator(
                 validation_tensors(),
                 device=device,
-                max_minibatch_size=self.__minibatch_size,
+                max_minibatch_size=self._minibatch_size,
                 yield_partial_minibatches=True,
                 shuffle_input=False,
                 parallelize=parallelize,
             ):
-                with torch.cuda.amp.autocast(enabled=self.__enable_amp):
+                with torch.cuda.amp.autocast(enabled=self._enable_amp):
                     mb_loss = self.neural_module(**mb_data)
                 num_minibatches += 1
                 num_samples += len(raw_samples)
@@ -288,17 +288,17 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         self.LOGGER.info("Epoch %i: Valid Loss %.2f", epoch + 1, validation_loss)
 
         validation_metrics = self.neural_module.report_metrics()
-        for epoch_hook in self.__validation_epoch_end_hooks:
+        for epoch_hook in self._validation_epoch_end_hooks:
             epoch_hook(self.__model, self.neural_module, epoch, validation_metrics)
         if len(validation_metrics) > 0:
             self.LOGGER.info("Validation Metrics: %s", json.dumps(validation_metrics, indent=2))
 
-        if self.__target_metric is not None:
-            target_metric = validation_metrics[self.__target_metric]
+        if self._target_metric is not None:
+            target_metric = validation_metrics[self._target_metric]
         else:
             target_metric = validation_loss
 
-        if self.__target_metric_higher_is_better:
+        if self._target_metric_higher_is_better:
             target_metric_improved = target_metric > best_target_metric
         else:
             target_metric_improved = target_metric < best_target_metric
@@ -366,13 +366,13 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         self.LOGGER.info("Using `%s` for training." % device)
         self.neural_module.to(device)
 
-        optimizer = self.__create_optimizer(self.neural_module.parameters())
-        scheduler = None if self.__create_scheduler is None else self.__create_scheduler(optimizer)
+        optimizer = self._create_optimizer(self.neural_module.parameters())
+        scheduler = None if self._create_scheduler is None else self._create_scheduler(optimizer)
 
-        for hook in self.__training_start_hooks:
+        for hook in self._training_start_hooks:
             hook(self.__model, self.neural_module, optimizer)
 
-        if self.__target_metric_higher_is_better and self.__target_metric is not None:
+        if self._target_metric_higher_is_better and self._target_metric is not None:
             best_target_metric = -math.inf
         else:
             best_target_metric = math.inf
@@ -382,11 +382,11 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                 validation_tensors, 0, best_target_metric, device, parallelize, show_progress_bar
             )
             assert improved
-            self.LOGGER.info(f"Initial {self.__target_metric or 'Loss'}: {target_metric}")
+            self.LOGGER.info(f"Initial {self._target_metric or 'Loss'}: {target_metric}")
             best_target_metric = target_metric
 
         num_epochs_not_improved: int = 0
-        for epoch in range(self.__max_num_epochs):
+        for epoch in range(self._max_num_epochs):
             self._run_training(
                 training_tensors,
                 epoch,
@@ -410,11 +410,11 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             if target_metric_improved:
                 self.LOGGER.info(
                     f"Best performance so far "
-                    f"({self.__target_metric or 'Loss'}: {target_metric:.3f} from {best_target_metric:.3f}). "
+                    f"({self._target_metric or 'Loss'}: {target_metric:.3f} from {best_target_metric:.3f}). "
                     "Saving model checkpoint."
                 )
                 num_epochs_not_improved = 0
-                self.__save_checkpoint()
+                self._save_checkpoint()
                 best_target_metric = target_metric
             else:
                 num_epochs_not_improved += 1
