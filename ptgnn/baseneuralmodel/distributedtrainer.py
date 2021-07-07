@@ -64,7 +64,9 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         parallelize=parallelize,
                     )
                 ):
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(
+                        set_to_none=True
+                    )  # https://pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html#torch.optim.Optimizer.zero_grad
                     with torch.cuda.amp.autocast(enabled=self._enable_amp):
                         mb_loss = distibuted_module(**mb_data)
                         if torch.isnan(mb_loss):
@@ -75,7 +77,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         if self._clip_gradient_norm is not None:
                             scaler.unscale_(optimizer)
                             torch.nn.utils.clip_grad_norm_(
-                                distibuted_module.parameters(recurse=True), self._clip_gradient_norm
+                                distibuted_module.parameters(), self._clip_gradient_norm
                             )
 
                         scaler.step(optimizer)
@@ -122,7 +124,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         sum_epoch_loss, num_minibatches, num_samples = 0.0, 0, 0
         start_time = time.time()
         try:
-            with torch.no_grad():
+            with distributed_neural_module.join(), distributed_neural_module.no_sync(), torch.no_grad():
                 for mb_data, raw_samples in self.model.minibatch_iterator(
                     validation_tensors(),
                     device=device,
@@ -135,15 +137,16 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         mb_loss = distributed_neural_module(**mb_data)
                     num_minibatches += 1
                     num_samples += len(raw_samples)
-                    sum_epoch_loss += mb_loss
+                    sum_epoch_loss += mb_loss.detach()
 
                 elapsed_time = time.time() - start_time
                 assert num_samples > 0, "No validation data was found."
 
-                # Sync validation losses
-                validation_loss = sum_epoch_loss / num_minibatches
-                dist.all_reduce(validation_loss)
-                validation_loss = validation_loss.item() / dist.get_world_size()
+            # Sync validation losses
+            validation_loss = sum_epoch_loss / num_minibatches
+            dist.all_reduce(validation_loss)
+            validation_loss = validation_loss.item() / dist.get_world_size()
+
         except RuntimeError as re:
             self.LOGGER.exception("Something went wrong: %s", str(re))
 
@@ -172,7 +175,6 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
             target_metric_improved = target_metric > best_target_metric
         else:
             target_metric_improved = target_metric < best_target_metric
-
         return target_metric, target_metric_improved
 
     def train(

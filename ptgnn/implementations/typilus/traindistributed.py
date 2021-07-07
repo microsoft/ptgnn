@@ -47,6 +47,7 @@ def load_from_folder(path: RichPath, shuffle: bool, rank: int, world_size):
 def create_optimizer(parameters):
     from torch.distributed.optim import ZeroRedundancyOptimizer
 
+    # return torch.optim.Adam(parameters, lr=0.005)
     return ZeroRedundancyOptimizer(
         parameters, optimizer_class=torch.optim.Adam, parameters_as_bucket_view=True, lr=0.0005
     )
@@ -99,7 +100,7 @@ def run(arguments):
         max_num_epochs=int(arguments["--max-num-epochs"]),
         minibatch_size=int(arguments["--minibatch-size"]),
         optimizer_creator=create_optimizer,
-        clip_gradient_norm=None,
+        clip_gradient_norm=1,
         target_validation_metric="Accuracy",
         target_validation_metric_higher_is_better=True,
         enable_amp=arguments["--amp"],
