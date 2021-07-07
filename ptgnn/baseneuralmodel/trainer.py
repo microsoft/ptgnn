@@ -153,7 +153,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
     def _save_checkpoint(self) -> None:
         self.__model.save(self.__checkpoint_location, self.neural_module)
 
-    def __restore_checkpoint(self, device=None) -> None:
+    def _restore_checkpoint(self, device=None) -> None:
         _, self.neural_module = self.__model.restore_model(
             self.__checkpoint_location, device=device
         )
@@ -425,4 +425,4 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                     break
 
         # Restore the best model params that were found.
-        self.__restore_checkpoint(device=device)
+        self._restore_checkpoint(device=device)

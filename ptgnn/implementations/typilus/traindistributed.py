@@ -12,6 +12,7 @@ Options:
     --restore-path=<path>      The path to previous model file for starting from previous checkpoint.
     --sequential-run           Do not parallelize data loading. Makes debugging easier.
     --quiet                    Do not show progress bar.
+    --world-size=<int>         The number of GPUs to use (assumes single-node, multi-GPUs). [default: -1]
     -h --help                  Show this screen.
     --debug                    Enable debug routines. [default: False]
 """
@@ -25,7 +26,7 @@ from pathlib import Path
 
 from ptgnn.baseneuralmodel.distributedtrainer import DistributedModelTrainer
 from ptgnn.baseneuralmodel.utils.amlutils import configure_logging, log_run
-from ptgnn.baseneuralmodel.utils.data import LazyDataIterable, ShardedLazyDataIterable
+from ptgnn.baseneuralmodel.utils.data import ShardedLazyDataIterable
 from ptgnn.implementations.typilus.graph2class import Graph2Class
 from ptgnn.implementations.typilus.train import create_graph2class_gnn_model
 
@@ -44,8 +45,16 @@ def load_from_folder(path: RichPath, shuffle: bool, rank: int, world_size):
 
 
 def create_optimizer(parameters):
-    # TODO: Use ZeRo
-    return torch.optim.Adam(parameters, lr=0.00025)
+    from torch.distributed.optim import ZeroRedundancyOptimizer
+
+    return ZeroRedundancyOptimizer(
+        parameters, optimizer_class=torch.optim.Adam, parameters_as_bucket_view=True, lr=0.0005
+    )
+
+
+def log_run_lambda(aml_ctx, fold, model, nn, epoch, metrics):
+    """A utility function that can be used with partial(), and can be serialized through multiprocessing."""
+    log_run(aml_ctx, fold, model, epoch, metrics)
 
 
 def run(arguments):
@@ -91,28 +100,28 @@ def run(arguments):
         minibatch_size=int(arguments["--minibatch-size"]),
         optimizer_creator=create_optimizer,
         clip_gradient_norm=None,
-        # target_validation_metric="Accuracy",
-        # target_validation_metric_higher_is_better=True,
+        target_validation_metric="Accuracy",
+        target_validation_metric_higher_is_better=True,
         enable_amp=arguments["--amp"],
     )
     if nn is not None:
         trainer.neural_module = nn
 
-    # TODO: Use a serializable form instead of the lambdas (`partial`)
-    # trainer.register_train_epoch_end_hook(
-    #     lambda model, nn, epoch, metrics: log_run(aml_ctx, "train", model, epoch, metrics)
-    # )
-    # trainer.register_validation_epoch_end_hook(
-    #     lambda model, nn, epoch, metrics: log_run(aml_ctx, "valid", model, epoch, metrics)
-    # )
+    trainer.register_train_epoch_end_hook(partial(log_run_lambda, aml_ctx, "train"))
+    trainer.register_validation_epoch_end_hook(partial(log_run_lambda, aml_ctx, "valid"))
+
+    world_size = int(arguments["--world-size"])
+    if world_size == -1:
+        world_size = torch.cuda.device_count()
 
     trainer.distributed_train(
+        world_size,
         training_data,
         validation_data,
         initialize_metadata=initialize_metadata,
         parallelize=not arguments["--sequential-run"],
         validate_on_start=True,
-        shuffle_training_data=False,  # TODO: Remove!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        shuffle_training_data=True,
         patience=10,
     )
 

@@ -1,18 +1,11 @@
 from typing_extensions import final
 
 import gzip
-import multiprocessing
 import os
 import torch
 from abc import ABC, abstractmethod
 from concurrent import futures
-from dpu_utils.utils.iterators import (
-    BufferedIterator,
-    DoubleBufferedIterator,
-    ThreadedIterator,
-    shuffled_iterator,
-)
-from functools import partial
+from dpu_utils.utils.iterators import BufferedIterator, ThreadedIterator, shuffled_iterator
 from itertools import islice
 from pathlib import Path
 from torch import nn
@@ -223,9 +216,7 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
             base_iterator = self._TensorizedDataIter(self, dataset_iterator, return_input_data)
 
             if use_multiprocessing:
-                for tensorized_sample in DoubleBufferedIterator(
-                    base_iterator, max_queue_size_inner=200, max_queue_size_outer=200
-                ):
+                for tensorized_sample in BufferedIterator(base_iterator, max_queue_size=500):
                     if tensorized_sample[0] is not None:
                         yield tensorized_sample
             else:

@@ -9,11 +9,10 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from functools import partial
-from torch.distributed.optim import ZeroRedundancyOptimizer
 from torch.nn.parallel import DistributedDataParallel as DDP
 from typing import Iterable, TypeVar
 
-from ptgnn.baseneuralmodel import AbstractScheduler, ModelTrainer
+from ptgnn.baseneuralmodel import ModelTrainer
 from ptgnn.baseneuralmodel.abstractneuralmodel import AbstractNeuralModel
 from ptgnn.baseneuralmodel.modulewithmetrics import ModuleWithMetrics
 from ptgnn.baseneuralmodel.utils.amlutils import configure_logging
@@ -65,7 +64,6 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         parallelize=parallelize,
                     )
                 ):
-                    self.LOGGER.info("Step %i", step_idx)
                     optimizer.zero_grad()
                     with torch.cuda.amp.autocast(enabled=self._enable_amp):
                         mb_loss = distibuted_module(**mb_data)
@@ -88,8 +86,6 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                     num_minibatches += 1
                     num_samples += len(raw_samples)
                     sum_epoch_loss += float(mb_loss)
-                    self.LOGGER.info("End of step: %s", step_idx)
-            self.LOGGER.info("Exited Join")
 
         except Exception as e:
             self.LOGGER.exception("Something went wrong: %s", str(e))
@@ -166,6 +162,9 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
 
         if self._target_metric is not None:
             target_metric = validation_metrics[self._target_metric]
+            target_metric = torch.tensor([target_metric], device=mb_loss.device)
+            dist.all_reduce(target_metric)
+            target_metric = target_metric.item() / dist.get_world_size()
         else:
             target_metric = validation_loss
 
@@ -192,10 +191,11 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         store_tensorized_data_in_memory: bool = False,
         shuffle_training_data: bool = True,
     ) -> None:
-        raise Exception("Use `distributed_train` instead.")
+        raise Exception("Use `distributed_train()` instead of calling `train().")
 
     def distributed_train(
         self,
+        world_size: int,
         training_data: ShardedLazyDataIterable[TRawDatapoint],
         validation_data: ShardedLazyDataIterable[TRawDatapoint],
         *,
@@ -225,7 +225,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         assert torch.distributed.is_available()
 
         if initialize_metadata:
-            training_data.set_rank(0, 1)
+            training_data.set_rank(0, 1)  # No sharding during metadata loading.
             self.load_metadata_and_create_network(training_data, parallelize, True)
 
         self.LOGGER.info(
@@ -238,8 +238,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         )
 
         ### Distributed code starts here
-        # First spawn processes here
-        world_size = 2  # TODO: External setup
+        # Spawn processes here
         mp.spawn(
             self._parallel_training_process,
             args=(
@@ -254,7 +253,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
             nprocs=world_size,
             join=True,
         )
-        self._restore_checkpoint()  # TODO: This won't work
+        self._restore_checkpoint()
 
     def _parallel_training_process(
         self,
@@ -267,7 +266,6 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         shuffle_training_data,
         validate_on_start: bool,
     ):
-
         os.environ["MASTER_ADDR"] = "localhost"
         os.environ["MASTER_PORT"] = "12355"
         dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
@@ -298,11 +296,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
             use_multiprocessing=True,
         )
 
-        # TODO: Configurable
-        optimizer = optimizer = ZeroRedundancyOptimizer(
-            distributed_neural_module.parameters(), optimizer_class=torch.optim.Adam, lr=0.001
-        )
-        # optimizer = self._create_optimizer(distributed_neural_module.parameters())
+        optimizer = self._create_optimizer(distributed_neural_module.parameters())
 
         scheduler = None if self._create_scheduler is None else self._create_scheduler(optimizer)
 
@@ -353,13 +347,13 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                 parallelize,
             )
             if target_metric_improved:
-                self.LOGGER.info(
-                    f"Best performance so far "
-                    f"({self._target_metric or 'Loss'}: {target_metric:.3f} from {best_target_metric:.3f}). "
-                    "Saving model checkpoint."
-                )
                 num_epochs_not_improved = 0
                 if dist.get_rank() == 0:
+                    self.LOGGER.info(
+                        f"Best performance so far "
+                        f"({self._target_metric or 'Loss'}: {target_metric:.3f} from {best_target_metric:.3f}). "
+                        "Saving model checkpoint."
+                    )
                     self._save_checkpoint()
                 best_target_metric = target_metric
             else:
