@@ -53,7 +53,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
 
         scaler = torch.cuda.amp.GradScaler(enabled=self._enable_amp)
         try:
-            with distibuted_module.join():
+            with distibuted_module.join(throw_on_early_termination=True):
                 for step_idx, (mb_data, raw_samples) in enumerate(
                     self.model.minibatch_iterator(
                         training_tensors(),
@@ -72,23 +72,27 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         if torch.isnan(mb_loss):
                             raise Exception("Loss has a NaN value.")
 
-                        scaler.scale(mb_loss).backward()
-
-                        if self._clip_gradient_norm is not None:
-                            scaler.unscale_(optimizer)
-                            torch.nn.utils.clip_grad_norm_(
-                                distibuted_module.parameters(), self._clip_gradient_norm
-                            )
-
-                        scaler.step(optimizer)
-                        scaler.update()
-                        if scheduler is not None:
-                            scheduler.step(epoch_idx=epoch, epoch_step=step_idx)
+                    mb_loss = scaler.scale(mb_loss)
 
                     num_minibatches += 1
                     num_samples += len(raw_samples)
-                    sum_epoch_loss += float(mb_loss)
+                    sum_epoch_loss += float(mb_loss.detach())
 
+                    mb_loss.backward()
+
+                    if self._clip_gradient_norm is not None:
+                        scaler.unscale_(optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            distibuted_module.parameters(), self._clip_gradient_norm
+                        )
+
+                    scaler.step(optimizer)
+                    scaler.update()
+                    if scheduler is not None:
+                        scheduler.step(epoch_idx=epoch, epoch_step=step_idx)
+
+        except RuntimeError as re:
+            self.LOGGER.info(str(re))
         except Exception as e:
             self.LOGGER.exception("Something went wrong: %s", str(e))
             raise e
