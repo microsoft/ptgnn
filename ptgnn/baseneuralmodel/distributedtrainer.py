@@ -232,7 +232,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
 
         if initialize_metadata:
             training_data.set_rank(0, 1)  # No sharding during metadata loading.
-            self.load_metadata_and_create_network(training_data, parallelize, True)
+            self.load_metadata_and_create_network(training_data, parallelize, False)
 
         self.LOGGER.info(
             "Model has %s trainable parameters.",
