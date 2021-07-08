@@ -343,7 +343,7 @@ class AbstractNeuralModel(ABC, Generic[TRawDatapoint, TTensorizedDatapoint, TNeu
         assert self.__metadata_initialized, "Metadata has not been initialized."
 
         if shuffle_input:
-            tensorized_data = shuffled_iterator(tensorized_data)
+            tensorized_data = shuffled_iterator(tensorized_data, buffer_size=500)
 
         unfinalized_minibatches = ThreadedIterator(
             self.__iterate_unfinalized_minibatches(
