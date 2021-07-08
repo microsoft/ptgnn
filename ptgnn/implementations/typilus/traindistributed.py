@@ -86,10 +86,10 @@ def run(arguments):
     restore_path = arguments.get("--restore-path", None)
     if restore_path:
         initialize_metadata = False
-        model, nn = Graph2Class.restore_model(Path(restore_path))
+        model, nn = Graph2Class.restore_model(Path(restore_path), device="cpu")
     elif arguments["--aml"] and model_path.exists():
         initialize_metadata = False
-        model, nn = Graph2Class.restore_model(model_path)
+        model, nn = Graph2Class.restore_model(model_path, device="cpu")
     else:
         nn = None
         model = create_graph2class_gnn_model()
