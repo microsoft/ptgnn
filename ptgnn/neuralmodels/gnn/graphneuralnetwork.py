@@ -119,7 +119,7 @@ class GraphNeuralNetwork(ModuleWithMetrics):
             edge_feature_embeddings = dropped_edge_features
 
         all_states = [node_representations]
-        for mp_layer_idx, mp_layer in enumerate(self.__message_passing_layers):
+        for mp_layer in self.__message_passing_layers:
             node_representations = mp_layer(
                 node_states=node_representations,
                 adjacency_lists=adjacency_lists,
