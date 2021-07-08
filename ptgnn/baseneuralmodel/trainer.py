@@ -31,7 +31,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
     """
     A trainer for `AbstractComponent`s. Used mainly for supervised learning.
 
-    Create a `ComponentTrainer` by passing a `AbstractComponent` in the constructor.
+    Create a `ModelTrainer` by passing a `AbstractNeuralModel` in the constructor.
     Invoke `train()` to initiate the training loop. The root `TNeuralModule` should return a scalar loss.
     """
 
