@@ -305,11 +305,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         else:
             target_metric_improved = target_metric < best_target_metric
 
-        if target_metric_improved:
-            for epoch_hook in self._improved_epoch_end_hooks:
-                epoch_hook(self.__model, self.neural_module, epoch, validation_metrics)
-
-        return target_metric, target_metric_improved
+        return target_metric, target_metric_improved, validation_metrics
 
     def train(
         self,
@@ -384,7 +380,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             best_target_metric = math.inf
 
         if validate_on_start:
-            target_metric, improved = self._run_validation(
+            target_metric, improved, _ = self._run_validation(
                 validation_tensors, 0, best_target_metric, device, parallelize, show_progress_bar
             )
             assert improved
@@ -405,7 +401,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                 shuffle_training_data,
             )
 
-            target_metric, target_metric_improved = self._run_validation(
+            target_metric, target_metric_improved, validation_metrics = self._run_validation(
                 validation_tensors,
                 epoch,
                 best_target_metric,
@@ -422,6 +418,10 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                 num_epochs_not_improved = 0
                 self._save_checkpoint()
                 best_target_metric = target_metric
+
+                if target_metric_improved:
+                    for epoch_hook in self._improved_epoch_end_hooks:
+                        epoch_hook(self.__model, self.neural_module, epoch, validation_metrics)
             else:
                 num_epochs_not_improved += 1
                 if num_epochs_not_improved > patience:

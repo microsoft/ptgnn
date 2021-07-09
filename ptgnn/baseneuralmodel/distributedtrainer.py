@@ -179,11 +179,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         else:
             target_metric_improved = target_metric < best_target_metric
 
-        if target_metric_improved:
-            for epoch_hook in self._improved_epoch_end_hooks:
-                epoch_hook(self.model, distributed_neural_module.module, epoch, validation_metrics)
-
-        return target_metric, target_metric_improved
+        return target_metric, target_metric_improved, validation_metrics
 
     def train(
         self,
@@ -321,7 +317,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         else:
             best_target_metric = math.inf
         if validate_on_start:
-            target_metric, improved = self._run_validation(
+            target_metric, improved, _ = self._run_validation(
                 distributed_neural_module,
                 validation_tensors,
                 0,
@@ -351,7 +347,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                 self.LOGGER.exception("Error during training", exc_info=e)
                 raise e
 
-            target_metric, target_metric_improved = self._run_validation(
+            target_metric, target_metric_improved, validation_metrics = self._run_validation(
                 distributed_neural_module,
                 validation_tensors,
                 epoch,
@@ -370,6 +366,11 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                     self._save_checkpoint()
 
                 best_target_metric = target_metric
+
+                for epoch_hook in self._improved_epoch_end_hooks:
+                    epoch_hook(
+                        self.model, distributed_neural_module.module, epoch, validation_metrics
+                    )
             else:
                 num_epochs_not_improved += 1
                 if num_epochs_not_improved > patience:
