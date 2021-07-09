@@ -10,7 +10,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from functools import partial
 from torch.nn.parallel import DistributedDataParallel as DDP
-from typing import Iterable, TypeVar
+from typing import Callable, Iterable, Optional, TypeVar
 
 from ptgnn.baseneuralmodel import ModelTrainer
 from ptgnn.baseneuralmodel.abstractneuralmodel import AbstractNeuralModel
@@ -146,10 +146,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                 elapsed_time = time.time() - start_time
                 assert num_samples > 0, "No validation data was found."
 
-            # Sync validation losses
             validation_loss = sum_epoch_loss / num_minibatches
-            dist.all_reduce(validation_loss)
-            validation_loss = validation_loss.item() / dist.get_world_size()
 
         except RuntimeError as re:
             self.LOGGER.exception("Something went wrong: %s", str(re))
@@ -173,12 +170,19 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
             dist.all_reduce(target_metric)
             target_metric = target_metric.item() / dist.get_world_size()
         else:
+            dist.all_reduce(validation_loss)
+            validation_loss = validation_loss.item() / dist.get_world_size()
             target_metric = validation_loss
 
         if self._target_metric_higher_is_better:
             target_metric_improved = target_metric > best_target_metric
         else:
             target_metric_improved = target_metric < best_target_metric
+
+        if target_metric_improved:
+            for epoch_hook in self._improved_epoch_end_hooks:
+                epoch_hook(self.model, distributed_neural_module.module, epoch, validation_metrics)
+
         return target_metric, target_metric_improved
 
     def train(
@@ -210,28 +214,26 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         initialize_metadata: bool = True,
         parallelize: bool = True,
         shuffle_training_data: bool = True,
+        worker_init: Optional[Callable[["DistributedModelTrainer", int, int], None]] = None,
     ) -> None:
         """
         The training-validation loop for `AbstractNeuralModel`s.
 
-        :param training_data: An iterable that each iteration yields the full training data. Note
-            that the data iterator should be aware of the rank of the node. Use `dist.get_rank()` to achieve that.
-        :param validation_data: An iterable that each iteration yields the full validation data. Note
-            that the data iterator should be aware of the rank of the node. Use `dist.get_rank()` to achieve that.
+        :param training_data: An iterable that yields the training data for a given shard. Note
+            that the data iterator should provide the `set_rank(rank, world_size)` that filters
+            the data appropriately.
+        :param validation_data: the validation set, as in `training_data`.
         :param validate_on_start: Whether to run a validation loop on start
         :param patience: The number of iterations before early stopping kicks in.
         :param initialize_metadata: If true, initialize the metadata from the training_data. Otherwise,
             assume that the model that is being trained has its metadata already initialized.
         :param parallelize: Bool indicating whether to run in parallel
-        :param use_multiprocessing: Whether to use multiprocessing
-        :param exponential_running_average_factor: The factor of the running average of the training loss
-            displayed in the progress bar.
         :param shuffle_training_data: shuffle the incoming data from `training_data`.
         """
         assert torch.distributed.is_available()
 
         if initialize_metadata:
-            training_data.set_rank(0, 1)  # No sharding during metadata loading.
+            training_data.set_rank(0, 1)  # No sharding currently possible during metadata loading.
             self.load_metadata_and_create_network(training_data, parallelize, False)
 
         self.LOGGER.info(
@@ -255,6 +257,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                 patience,
                 shuffle_training_data,
                 validate_on_start,
+                worker_init,
             ),
             nprocs=world_size,
             join=True,
@@ -271,12 +274,16 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         patience,
         shuffle_training_data,
         validate_on_start: bool,
+        worker_init: Optional[Callable[["DistributedModelTrainer", int, int], None]] = None,
     ):
+        assert torch.cuda.is_available(), "No CUDA available. Aborting training."
+
         os.environ["MASTER_ADDR"] = "localhost"
         os.environ["MASTER_PORT"] = "12355"
         dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
-        configure_logging(None, rank=rank)  # TODO: Pass AML context, if any
+        if worker_init is not None:
+            worker_init(self, rank, world_size)
 
         self.LOGGER.info(
             f"[{os.getpid()}]: world_size = {dist.get_world_size()}, "
@@ -361,6 +368,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         "Saving model checkpoint."
                     )
                     self._save_checkpoint()
+
                 best_target_metric = target_metric
             else:
                 num_epochs_not_improved += 1
@@ -369,5 +377,5 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         f"The target metric has not improved for {num_epochs_not_improved} epochs . Stopping."
                     )
                     break
-        # Restore the best model params that were found.
+
         dist.destroy_process_group()

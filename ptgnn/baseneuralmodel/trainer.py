@@ -67,7 +67,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         """
         self.__model = model
         self.__neural_network: Optional[TNeuralModule] = None
-        self.__checkpoint_location = checkpoint_location
+        self._checkpoint_location = checkpoint_location
 
         self._max_num_epochs = max_num_epochs
         self._minibatch_size = minibatch_size
@@ -84,6 +84,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         ] = []
         self._train_epoch_end_hooks: List[EndOfEpochHook] = []
         self._validation_epoch_end_hooks: List[EndOfEpochHook] = []
+        self._improved_epoch_end_hooks: List[EndOfEpochHook] = []
         self._clip_gradient_norm = clip_gradient_norm
         self._enable_amp = enable_amp
 
@@ -151,12 +152,10 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         self._save_checkpoint()
 
     def _save_checkpoint(self) -> None:
-        self.__model.save(self.__checkpoint_location, self.neural_module)
+        self.__model.save(self._checkpoint_location, self.neural_module)
 
     def _restore_checkpoint(self, device=None) -> None:
-        _, self.neural_module = self.__model.restore_model(
-            self.__checkpoint_location, device=device
-        )
+        _, self.neural_module = self.__model.restore_model(self._checkpoint_location, device=device)
 
     def register_model_metadata_finalized_hook(self, hook: Callable[[ModelType], None]) -> None:
         self.__metadata_finalized_hooks.append(hook)
@@ -171,6 +170,9 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
 
     def register_validation_epoch_end_hook(self, hook: EndOfEpochHook) -> None:
         self._validation_epoch_end_hooks.append(hook)
+
+    def register_epoch_improved_end_hook(self, hook: EndOfEpochHook) -> None:
+        self._improved_epoch_end_hooks.append(hook)
 
     def _run_training(
         self,
@@ -302,6 +304,10 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             target_metric_improved = target_metric > best_target_metric
         else:
             target_metric_improved = target_metric < best_target_metric
+
+        if target_metric_improved:
+            for epoch_hook in self._improved_epoch_end_hooks:
+                epoch_hook(self.__model, self.neural_module, epoch, validation_metrics)
 
         return target_metric, target_metric_improved
 

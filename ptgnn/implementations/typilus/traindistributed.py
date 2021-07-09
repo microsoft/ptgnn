@@ -4,12 +4,12 @@ Usage:
     train.py [options] TRAIN_DATA_PATH VALID_DATA_PATH MODEL_FILENAME
 
 Options:
-    --aml                      Run this in Azure ML
     --amp                      Enable automatic mixed precision.
     --azure-info=<path>        Azure authentication information file (JSON). Used to load data from Azure storage.
     --max-num-epochs=<epochs>  The maximum number of epochs to run training for. [default: 100]
     --minibatch-size=<size>    The minibatch size. [default: 300]
     --restore-path=<path>      The path to previous model file for starting from previous checkpoint.
+    --autorestore              Automatically restore a checkpoint if one exists.
     --sequential-run           Do not parallelize data loading. Makes debugging easier.
     --quiet                    Do not show progress bar.
     --world-size=<int>         The number of GPUs to use (assumes single-node, multi-GPUs). [default: -1]
@@ -18,7 +18,6 @@ Options:
 """
 import random
 import torch
-import torch.distributed as dist
 from docopt import docopt
 from dpu_utils.utils import RichPath, run_and_debug
 from functools import partial
@@ -47,10 +46,8 @@ def load_from_folder(path: RichPath, shuffle: bool, rank: int, world_size):
 def create_optimizer(parameters):
     from torch.distributed.optim import ZeroRedundancyOptimizer
 
-    # return torch.optim.Adam(parameters, lr=0.005)
-    return ZeroRedundancyOptimizer(
-        parameters, optimizer_class=torch.optim.Adam, parameters_as_bucket_view=True, lr=0.0005
-    )
+    # return torch.optim.Adam(parameters, lr=0.01)
+    return ZeroRedundancyOptimizer(parameters, optimizer_class=torch.optim.Adam, lr=0.001)
 
 
 def log_run_lambda(aml_ctx, fold, model, nn, epoch, metrics):
@@ -58,16 +55,30 @@ def log_run_lambda(aml_ctx, fold, model, nn, epoch, metrics):
     log_run(aml_ctx, fold, model, epoch, metrics)
 
 
-def run(arguments):
-    if arguments["--aml"]:
+def worker_init(trainer: DistributedModelTrainer, rank, world_isze):
+    try:
         from azureml.core.run import Run
 
         aml_ctx = Run.get_context()
-        assert torch.cuda.is_available(), "No CUDA available. Aborting training."
-    else:
+    except:
         aml_ctx = None
 
-    log_path = configure_logging(aml_ctx)
+    log_path = configure_logging(aml_ctx, rank=rank)
+
+    trainer.register_train_epoch_end_hook(partial(log_run_lambda, aml_ctx, "train-" + str(rank)))
+    trainer.register_validation_epoch_end_hook(
+        partial(log_run_lambda, aml_ctx, "valid-" + str(rank))
+    )
+
+    def upload_hook(model, nn, epoch, metrics):
+        aml_ctx.upload_file(name="model.pkl.gz", path_or_stream=str(trainer._checkpoint_location))
+        aml_ctx.upload_file(name="full.log", path_or_stream=log_path)
+
+    if rank == 0 and aml_ctx is not None:
+        trainer.register_epoch_improved_end_hook(upload_hook)
+
+
+def run(arguments):
     azure_info_path = arguments.get("--azure-info", None)
     training_data_path = RichPath.create(arguments["TRAIN_DATA_PATH"], azure_info_path)
     training_data = ShardedLazyDataIterable(
@@ -87,7 +98,7 @@ def run(arguments):
     if restore_path:
         initialize_metadata = False
         model, nn = Graph2Class.restore_model(Path(restore_path), device="cpu")
-    elif arguments["--aml"] and model_path.exists():
+    elif arguments["--autorestore"] and model_path.exists():
         initialize_metadata = False
         model, nn = Graph2Class.restore_model(model_path, device="cpu")
     else:
@@ -108,9 +119,6 @@ def run(arguments):
     if nn is not None:
         trainer.neural_module = nn
 
-    trainer.register_train_epoch_end_hook(partial(log_run_lambda, aml_ctx, "train"))
-    trainer.register_validation_epoch_end_hook(partial(log_run_lambda, aml_ctx, "valid"))
-
     world_size = int(arguments["--world-size"])
     if world_size == -1:
         world_size = torch.cuda.device_count()
@@ -124,11 +132,8 @@ def run(arguments):
         validate_on_start=True,
         shuffle_training_data=True,
         patience=10,
+        worker_init=worker_init,
     )
-
-    if aml_ctx is not None:
-        aml_ctx.upload_file(name="model.pkl.gz", path_or_stream=str(model_path))
-        aml_ctx.upload_file(name="full.log", path_or_stream=log_path)
 
 
 if __name__ == "__main__":
