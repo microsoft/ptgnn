@@ -205,10 +205,11 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                 optimizer.zero_grad()
                 with torch.cuda.amp.autocast(enabled=self._enable_amp):
                     mb_loss = self.neural_module(**mb_data)
-                    if torch.isnan(mb_loss):
-                        raise Exception("Loss has a NaN value.")
 
                     scaler.scale(mb_loss).backward()
+
+                    if torch.isnan(mb_loss):
+                        raise Exception("Loss has a NaN value.")
 
                     if self._clip_gradient_norm is not None:
                         scaler.unscale_(optimizer)
@@ -223,17 +224,19 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
 
                 num_minibatches += 1
                 num_samples += len(raw_samples)
-                mb_loss = float(mb_loss.cpu())
-                sum_epoch_loss += mb_loss
-                if num_minibatches == 1:  # First minibatch
-                    running_avg_loss = mb_loss
-                else:
-                    running_avg_loss = (
-                        exponential_running_average_factor * running_avg_loss
-                        + (1 - exponential_running_average_factor) * mb_loss
-                    )
-                progress_bar.update()
-                progress_bar.set_postfix(Loss=f"{running_avg_loss:.2f}")
+                with torch.no_grad():
+                    sum_epoch_loss += mb_loss
+                if show_progress_bar:
+                    mb_loss = float(mb_loss)
+                    if num_minibatches == 1:  # First minibatch
+                        running_avg_loss = mb_loss
+                    else:
+                        running_avg_loss = (
+                            exponential_running_average_factor * running_avg_loss
+                            + (1 - exponential_running_average_factor) * mb_loss
+                        )
+                    progress_bar.update()
+                    progress_bar.set_postfix(Loss=f"{running_avg_loss:.2f}")
 
         elapsed_time = time.time() - start_time
         self.LOGGER.info(
@@ -244,7 +247,9 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         assert (
             num_minibatches > 0
         ), "No training minibatches were created. The minibatch size may be too large or the training dataset size too small."
-        self.LOGGER.info("Epoch %i: Train Loss %.2f", epoch + 1, sum_epoch_loss / num_minibatches)
+        self.LOGGER.info(
+            "Epoch %i: Train Loss %.2f", epoch + 1, float(sum_epoch_loss) / num_minibatches
+        )
         train_metrics = self.neural_module.report_metrics()
 
         for epoch_hook in self._train_epoch_end_hooks:
@@ -274,9 +279,10 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                     mb_loss = self.neural_module(**mb_data)
                 num_minibatches += 1
                 num_samples += len(raw_samples)
-                sum_epoch_loss += float(mb_loss.cpu())
-                progress_bar.update()
-                progress_bar.set_postfix(Loss=f"{sum_epoch_loss / num_minibatches:.2f}")
+                sum_epoch_loss += mb_loss
+                if show_progress_bar:
+                    progress_bar.update()
+                    progress_bar.set_postfix(Loss=f"{float(sum_epoch_loss) / num_minibatches:.2f}")
 
         elapsed_time = time.time() - start_time
         assert num_samples > 0, "No validation data was found."
