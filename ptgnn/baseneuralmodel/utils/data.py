@@ -12,6 +12,20 @@ class LazyDataIterable(Iterable[T]):
         return self.__base_iterable_func()
 
 
+class ShardedLazyDataIterable(Iterable[T]):
+    def __init__(self, base_iterable_func: Callable[[int, int], Iterator[T]]):
+        self.__base_iterable_func = base_iterable_func
+        self.__rank = None
+        self.__world_size = None
+
+    def set_rank(self, rank: int, world_size: int) -> None:
+        self.__rank = rank
+        self.__world_size = world_size
+
+    def __iter__(self) -> Iterator[T]:
+        return self.__base_iterable_func(rank=self.__rank, world_size=self.__world_size)
+
+
 class MemorizedDataIterable(Iterable[T]):
     def __init__(self, base_iterable_func: Callable[[], Iterator[T]], shuffle: bool = False):
         self.__base_iterable_func = base_iterable_func

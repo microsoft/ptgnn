@@ -76,7 +76,7 @@ class Graph2ClassModule(ModuleWithMetrics):
         self.__sum_accuracy = 0
 
     def _module_metrics(self) -> Dict[str, Any]:
-        return {"Accuracy": self.__sum_accuracy / self.__num_samples}
+        return {"Accuracy": int(self.__sum_accuracy) / int(self.__num_samples)}
 
     def _logits(self, graph_mb_data):
         graph_output: GnnOutput = self.__gnn(**graph_mb_data)
@@ -97,8 +97,8 @@ class Graph2ClassModule(ModuleWithMetrics):
     def forward(self, graph_mb_data, target_classes, original_supernode_idxs):
         logits, _ = self._logits(graph_mb_data)
         with torch.no_grad():
-            self.__sum_accuracy += int((torch.argmax(logits, dim=-1) == target_classes).sum())
-            self.__num_samples += int(target_classes.shape[0])
+            self.__sum_accuracy += (torch.argmax(logits, dim=-1) == target_classes).sum()
+            self.__num_samples += target_classes.shape[0]
         return self.__loss(logits, target_classes)
 
 

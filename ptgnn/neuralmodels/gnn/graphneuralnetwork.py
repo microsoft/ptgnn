@@ -75,9 +75,9 @@ class GraphNeuralNetwork(ModuleWithMetrics):
 
     def _module_metrics(self) -> Dict[str, Any]:
         return {
-            "num_graphs": self.__num_graphs,
-            "num_nodes": self.__num_nodes,
-            "num_edges": self.__num_edges,
+            "num_graphs": int(self.__num_graphs),
+            "num_nodes": int(self.__num_nodes),
+            "num_edges": int(self.__num_edges),
         }
 
     def gnn(
@@ -119,7 +119,7 @@ class GraphNeuralNetwork(ModuleWithMetrics):
             edge_feature_embeddings = dropped_edge_features
 
         all_states = [node_representations]
-        for mp_layer_idx, mp_layer in enumerate(self.__message_passing_layers):
+        for mp_layer in self.__message_passing_layers:
             node_representations = mp_layer(
                 node_states=node_representations,
                 adjacency_lists=adjacency_lists,
@@ -196,9 +196,9 @@ class GraphNeuralNetwork(ModuleWithMetrics):
         )  # [num_nodes, H]
 
         with torch.no_grad():
-            self.__num_edges += int(sum(adj[0].shape[0] for adj in adjacency_lists))
-            self.__num_graphs += int(num_graphs)
-            self.__num_nodes += int(node_to_graph_idx.shape[0])
+            self.__num_edges += sum(adj[0].shape[0] for adj in adjacency_lists)
+            self.__num_graphs += num_graphs
+            self.__num_nodes += node_to_graph_idx.shape[0]
         return GnnOutput(
             input_node_representations=initial_node_representations,
             output_node_representations=output_representations,
