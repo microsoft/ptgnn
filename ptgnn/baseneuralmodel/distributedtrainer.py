@@ -346,13 +346,13 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                 self.LOGGER.exception("Error during training", exc_info=e)
                 raise e
 
+            # Save optimizer and epoch id for scheduler
+            optimizer_state = optimizer.state_dict()
             if dist.get_rank() == 0:
-                # Save optimizer and epoch id for scheduler
-                torch.save({
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "epoch": epoch + 1
-                },
-                    self._checkpoint_location.with_suffix(".optimizerstate")
+                # Save only on rank 0
+                torch.save(
+                    {"optimizer_state_dict": optimizer_state, "epoch": epoch + 1},
+                    self._checkpoint_location.with_suffix(".optimizerstate"),
                 )
 
             target_metric, target_metric_improved, validation_metrics = self._run_validation(
