@@ -74,7 +74,9 @@ class MlpMessagePassingLayer(AbstractMessagePassingLayer):
         reference_node_graph_idx: Dict[str, torch.Tensor],
         edge_features: List[torch.Tensor],
     ) -> torch.Tensor:
-        assert len(adjacency_lists) == len(self.__edge_message_transformation_layers)
+        assert len(adjacency_lists) == len(
+            self.__edge_message_transformation_layers
+        ), "The number of adjacency lists must be equal to the number of edge types."
 
         all_message_targets, all_messages = [], []
         for edge_type_idx, (adj_list, features, edge_transformation_layer) in enumerate(
