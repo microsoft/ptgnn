@@ -9,6 +9,7 @@ Options:
     --max-num-epochs=<epochs>  The maximum number of epochs to run training for. [default: 100]
     --minibatch-size=<size>    The minibatch size. [default: 300]
     --restore-path=<path>      The path to previous model file for starting from previous checkpoint.
+    --restore-optimizer=<path> The path to previous optimizer and scheduler state.
     --autorestore              Automatically restore a checkpoint if one exists.
     --sequential-run           Do not parallelize data loading. Makes debugging easier.
     --quiet                    Do not show progress bar.
@@ -16,6 +17,7 @@ Options:
     -h --help                  Show this screen.
     --debug                    Enable debug routines. [default: False]
 """
+import logging
 import random
 import torch
 from docopt import docopt
@@ -73,6 +75,7 @@ def worker_init(trainer: DistributedModelTrainer, rank, world_isze):
     def upload_hook(model, nn, epoch, metrics):
         aml_ctx.upload_file(name="model.pkl.gz", path_or_stream=str(trainer._checkpoint_location))
         aml_ctx.upload_file(name="full.log", path_or_stream=log_path)
+        aml_ctx.upload_file(name="optimizer_state.pt", path_or_stream=str(trainer._checkpoint_location.with_suffix(".optimizerstate")))
 
     if rank == 0 and aml_ctx is not None:
         trainer.register_epoch_improved_end_hook(upload_hook)
@@ -104,6 +107,19 @@ def run(arguments):
     else:
         nn = None
         model = create_graph2class_gnn_model()
+
+    if arguments["--restore-optimizer"]:
+        opt_state = torch.load(arguments["--restore-optimizer"])
+
+        def create_optimizer(parameters):
+            opt = torch.optim.Adam(parameters, lr=0.00025)
+            logging.info("Restoring optimizer state from `%s`.", arguments["--restore-optimizer"])
+            opt.load_state_dict(opt_state["optimizer_state_dict"])
+            return opt
+
+    else:
+        def create_optimizer(parameters):
+            return torch.optim.Adam(parameters, lr=0.00025)
 
     trainer = DistributedModelTrainer(
         model,

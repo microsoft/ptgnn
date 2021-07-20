@@ -15,7 +15,6 @@ from typing import Callable, Iterable, Optional, TypeVar
 from ptgnn.baseneuralmodel import ModelTrainer
 from ptgnn.baseneuralmodel.abstractneuralmodel import AbstractNeuralModel
 from ptgnn.baseneuralmodel.modulewithmetrics import ModuleWithMetrics
-from ptgnn.baseneuralmodel.utils.amlutils import configure_logging
 from ptgnn.baseneuralmodel.utils.data import ShardedLazyDataIterable
 
 TRawDatapoint = TypeVar("TRawDatapoint")
@@ -346,6 +345,15 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
             except Exception as e:
                 self.LOGGER.exception("Error during training", exc_info=e)
                 raise e
+
+            if dist.get_rank() == 0:
+                # Save optimizer and epoch id for scheduler
+                torch.save({
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "epoch": epoch + 1
+                },
+                    self._checkpoint_location.with_suffix(".optimizerstate")
+                )
 
             target_metric, target_metric_improved, validation_metrics = self._run_validation(
                 distributed_neural_module,

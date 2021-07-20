@@ -407,6 +407,14 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                 shuffle_training_data,
             )
 
+            # Save optimizer and epoch id for scheduler
+            torch.save({
+                "optimizer_state_dict": optimizer.state_dict(),
+                "epoch": epoch + 1
+            },
+            self._checkpoint_location.with_suffix(".optimizerstate")
+            )
+
             target_metric, target_metric_improved, validation_metrics = self._run_validation(
                 validation_tensors,
                 epoch,
