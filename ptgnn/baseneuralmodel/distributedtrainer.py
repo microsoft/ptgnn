@@ -324,7 +324,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
             target_metric, improved, _ = self._run_validation(
                 distributed_neural_module,
                 validation_tensors,
-                0,
+                start_epoch_idx,
                 best_target_metric,
                 device,
                 parallelize,
@@ -335,7 +335,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
 
         num_epochs_not_improved: int = 0
 
-        for epoch in range(start=start_epoch_idx, stop=self._max_num_epochs):
+        for epoch in range(start_epoch_idx, self._max_num_epochs):
             try:
                 self._run_training(
                     distributed_neural_module,

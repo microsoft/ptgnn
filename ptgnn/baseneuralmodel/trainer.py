@@ -389,14 +389,19 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
 
         if validate_on_start:
             target_metric, improved, _ = self._run_validation(
-                validation_tensors, 0, best_target_metric, device, parallelize, show_progress_bar
+                validation_tensors,
+                start_epoch_idx,
+                best_target_metric,
+                device,
+                parallelize,
+                show_progress_bar,
             )
             assert improved
             self.LOGGER.info(f"Initial {self._target_metric or 'Loss'}: {target_metric}")
             best_target_metric = target_metric
 
         num_epochs_not_improved: int = 0
-        for epoch in range(start=start_epoch_idx, stop=self._max_num_epochs):
+        for epoch in range(start_epoch_idx, self._max_num_epochs):
             self._run_training(
                 training_tensors,
                 epoch,
