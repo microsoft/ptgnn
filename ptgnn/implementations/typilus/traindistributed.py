@@ -134,9 +134,11 @@ def run(arguments):
 
     if arguments["--restore-optimizer"]:
         opt_state = torch.load(arguments["--restore-optimizer"])
+        current_epoch_idx = opt_state["epoch"]
         create_optimizer_ = partial(create_optimizer, state=opt_state["optimizer_state_dict"])
     else:
         create_optimizer_ = create_optimizer
+        current_epoch_idx = 0
 
     trainer = DistributedModelTrainer(
         model,
@@ -166,6 +168,7 @@ def run(arguments):
         shuffle_training_data=True,
         patience=10,
         worker_init=worker_init,
+        start_epoch_idx=current_epoch_idx,
     )
 
 

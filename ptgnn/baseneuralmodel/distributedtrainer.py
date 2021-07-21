@@ -195,6 +195,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         device=None,
         store_tensorized_data_in_memory: bool = False,
         shuffle_training_data: bool = True,
+        start_epoch_idx: int = 0,
     ) -> None:
         raise Exception("Use `distributed_train()` instead of calling `train().")
 
@@ -210,6 +211,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         parallelize: bool = True,
         shuffle_training_data: bool = True,
         worker_init: Optional[Callable[["DistributedModelTrainer", int, int], None]] = None,
+        start_epoch_idx: int = 0,
     ) -> None:
         """
         The training-validation loop for `AbstractNeuralModel`s.
@@ -224,6 +226,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
             assume that the model that is being trained has its metadata already initialized.
         :param parallelize: Bool indicating whether to run in parallel
         :param shuffle_training_data: shuffle the incoming data from `training_data`.
+        :param start_epoch_idx: the idx of the first epoch in this training loop (used for resuming).
         """
         assert torch.distributed.is_available()
 
@@ -253,6 +256,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                 shuffle_training_data,
                 validate_on_start,
                 worker_init,
+                start_epoch_idx,
             ),
             nprocs=world_size,
             join=True,
@@ -270,6 +274,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         shuffle_training_data,
         validate_on_start: bool,
         worker_init: Optional[Callable[["DistributedModelTrainer", int, int], None]] = None,
+        start_epoch_idx: int = 0,
     ):
         assert torch.cuda.is_available(), "No CUDA available. Aborting training."
 
@@ -330,7 +335,7 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
 
         num_epochs_not_improved: int = 0
 
-        for epoch in range(self._max_num_epochs):
+        for epoch in range(start=start_epoch_idx, stop=self._max_num_epochs):
             try:
                 self._run_training(
                     distributed_neural_module,

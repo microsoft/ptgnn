@@ -164,6 +164,7 @@ def run(arguments):
 
     if arguments["--restore-optimizer"]:
         opt_state = torch.load(arguments["--restore-optimizer"])
+        current_epoch_idx = opt_state["epoch"]
 
         def create_optimizer(parameters):
             opt = torch.optim.Adam(parameters, lr=0.00025)
@@ -173,6 +174,7 @@ def run(arguments):
             return opt
 
     else:
+        current_epoch_idx = 0
 
         def create_optimizer(parameters):
             return torch.optim.Adam(parameters, lr=0.00025)
@@ -206,6 +208,7 @@ def run(arguments):
         parallelize=not arguments["--sequential-run"],
         patience=10,
         store_tensorized_data_in_memory=True,
+        start_epoch_idx=current_epoch_idx,
     )
 
     test_data_path = RichPath.create(arguments["TEST_DATA_PATH"], azure_info_path)

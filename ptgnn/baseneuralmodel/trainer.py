@@ -328,6 +328,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         device=None,
         store_tensorized_data_in_memory: bool = False,
         shuffle_training_data: bool = True,
+        start_epoch_idx: int = 0,
     ) -> None:
         """
         The training-validation loop for `AbstractNeuralModel`s.
@@ -346,6 +347,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
         :param device: the target PyTorch device for training
         :param store_tensorized_data_in_memory: store all tensorized data in memory instead of computing them on-line.
         :param shuffle_training_data: shuffle the incoming data from `training_data`.
+        :param start_epoch_idx: the idx of the first epoch in this training loop (used for resuming).
         """
         if initialize_metadata:
             self.load_metadata_and_create_network(training_data, parallelize, show_progress_bar)
@@ -394,7 +396,7 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             best_target_metric = target_metric
 
         num_epochs_not_improved: int = 0
-        for epoch in range(self._max_num_epochs):
+        for epoch in range(start=start_epoch_idx, stop=self._max_num_epochs):
             self._run_training(
                 training_tensors,
                 epoch,
@@ -408,11 +410,9 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
             )
 
             # Save optimizer and epoch id for scheduler
-            torch.save({
-                "optimizer_state_dict": optimizer.state_dict(),
-                "epoch": epoch + 1
-            },
-            self._checkpoint_location.with_suffix(".optimizerstate")
+            torch.save(
+                {"optimizer_state_dict": optimizer.state_dict(), "epoch": epoch + 1},
+                self._checkpoint_location.with_suffix(".optimizerstate"),
             )
 
             target_metric, target_metric_improved, validation_metrics = self._run_validation(
