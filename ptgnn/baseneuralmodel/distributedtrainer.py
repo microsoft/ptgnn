@@ -71,12 +71,12 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
                         if torch.isnan(mb_loss):
                             raise Exception("Loss has a NaN value.")
 
+                    with torch.no_grad():
+                        num_minibatches += 1
+                        num_samples += len(raw_samples)
+                        sum_epoch_loss += mb_loss
+
                     mb_loss = scaler.scale(mb_loss)
-
-                    num_minibatches += 1
-                    num_samples += len(raw_samples)
-                    sum_epoch_loss += float(mb_loss.detach())
-
                     mb_loss.backward()
 
                     if self._clip_gradient_norm is not None:
@@ -105,7 +105,9 @@ class DistributedModelTrainer(ModelTrainer[TRawDatapoint, TTensorizedDatapoint, 
         assert (
             num_minibatches > 0
         ), "No training minibatches were created. The minibatch size may be too large or the training dataset size too small."
-        self.LOGGER.info("Epoch %i: Train Loss %.2f", epoch + 1, sum_epoch_loss / num_minibatches)
+        self.LOGGER.info(
+            "Epoch %i: Train Loss %.2f", epoch + 1, float(sum_epoch_loss) / num_minibatches
+        )
         train_metrics = distibuted_module.module.report_metrics()
 
         for epoch_hook in self._train_epoch_end_hooks:
