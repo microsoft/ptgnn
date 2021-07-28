@@ -354,8 +354,7 @@ class GraphNeuralNetworkModel(
             ],
             edge_features=tensorized_edge_features,
             reference_nodes={
-                n: np.array(np.array(refs, dtype=np.int32))
-                for n, refs in datapoint.reference_nodes.items()
+                n: np.array(refs, dtype=np.int32) for n, refs in datapoint.reference_nodes.items()
             },
             num_nodes=len(datapoint.node_information),
         )
