@@ -17,7 +17,6 @@ Options:
     -h --help                  Show this screen.
     --debug                    Enable debug routines. [default: False]
 """
-import logging
 import random
 import torch
 import torch.distributed as dist
