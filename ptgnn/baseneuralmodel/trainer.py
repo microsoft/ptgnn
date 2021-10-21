@@ -214,7 +214,9 @@ class ModelTrainer(Generic[TRawDatapoint, TTensorizedDatapoint, TNeuralModule]):
                     parallelize=parallelize,
                 )
             ):
-                optimizer.zero_grad()
+                optimizer.zero_grad(
+                    set_to_none=True
+                )  # https://pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html#torch.optim.Optimizer.zero_grad)
                 with catch_cuda_oom(self._catch_cuda_ooms):
                     with torch.cuda.amp.autocast(enabled=self._enable_amp):
                         mb_loss = self.neural_module(**mb_data)
