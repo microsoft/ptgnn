@@ -44,14 +44,14 @@ on your CUDA setup following their instructions. (Note
 that the `pytorch-scatter` binaries built for CUDA 10.1 also work for
 CUDA 10.2).
 
-1. To install PyTorch 1.4, use the up-to-date command from [PyTorch Get Started](https://pytorch.org/get-started/), selecting the appropriate options, e.g. for Linux, pip, and CUDA 10.1 it's currently:
+1. To install PyTorch 1.7.0 or higher, use the up-to-date command from [PyTorch Get Started](https://pytorch.org/get-started/), selecting the appropriate options, e.g. for Linux, pip, and CUDA 10.1 it's currently:
     ```bash
     pip install torch torchvision
     ```
 
-1. To install `pytorch-scatter`, follow the instructions from the [GitHub repo](https://github.com/rusty1s/pytorch_scatter), choosing the appropriate CUDA option, _e.g._, for CUDA 10.1:
+1. To install `pytorch-scatter`, follow the instructions from the [GitHub repo](https://github.com/rusty1s/pytorch_scatter), choosing the appropriate CUDA option, _e.g._, for PyTorch 1.7.0 and CUDA 10.1:
     ```bash
-    pip install torch-scatter==2.0.4+cu101 -f https://pytorch-geometric.com/whl/torch-1.4.0.html
+    pip install torch-scatter==2.0.5+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
     ```
 
 1. To install `ptgnn` from pypi, including all other dependencies:
@@ -101,12 +101,12 @@ development environment:
 
 ###### Using Conda
 If you are using conda, then download the correct torch-scatter wheel.
-If using `torch==1.5.0` and Python 3.7, you can use the [environment.yml](environment.yml)
+If using `torch==1.7.0` and Python 3.7, you can use the [environment.yml](environment.yml)
 included in the repo, with the following steps:
 ```
 $ conda env create -f environment.yml
 $ conda activate ptgnn-env
-$ pip install torch_scatter-2.0.4+cu102-cp37-cp37m-linux_x86_64.whl
+$ pip install torch_scatter-2.0.5+cu102-cp37-cp37m-linux_x86_64.whl
 $ pip install -e .
 $ python setup.py test
 $ pip install pre-commit
