@@ -16,6 +16,7 @@ def catch_cuda_oom(enabled: bool = True):
             if "CUDA out of memory." in repr(re):
                 LOGGER.exception("CUDA Out-Of-Memory Caught and Execution Resumed.", exc_info=re)
                 torch.cuda.empty_cache()
+                torch.cuda.synchronize()
             else:
                 raise re
     else:
