@@ -1,4 +1,4 @@
-# ptgnn: A PyTorch GNN Library ![PyPI](https://img.shields.io/pypi/v/ptgnn?style=flat-square)
+# ptgnn: A PyTorch GNN Library ![PyPI](https://img.shields.io/pypi/v/ptgnn?style=flat-square) ![conda](https://img.shields.io/conda/vn/conda-forge/ptgnn)
 
 This is a library containing pyTorch code for creating graph neural network (GNN) models.
 The library provides some sample implementations.
@@ -71,6 +71,10 @@ CUDA 10.2).
     python setup.py test
     ```
 
+1. To install `ptgnn` from conda, including all other dependencies:
+    ```bash
+   conda search ptgnn --channel conda-forge
+    ```
 
 # Contributing
 
